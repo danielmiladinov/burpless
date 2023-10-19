@@ -1,7 +1,9 @@
 # danielmiladinov/burpless
 
 An idiomatic Clojure wrapper for the latest version of [cucumber-jvm](https://github.com/cucumber/cucumber-jvm),
-inspired by [auxoncorp/clj-cucumber](https://github.com/auxoncorp/clj-cucumber)
+inspired by [auxoncorp/clj-cucumber](https://github.com/auxoncorp/clj-cucumber).
+
+Library name suggested by [Roman Ostash](https://github.com/Romacoding).
 
 ## Usage
 
