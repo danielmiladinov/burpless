@@ -5,6 +5,17 @@ inspired by [auxoncorp/clj-cucumber](https://github.com/auxoncorp/clj-cucumber).
 
 Library name suggested by [Roman Ostash](https://github.com/Romacoding).
 
+- [Usage](#usage)
+  - [Add the Dependency](#add-the-dependency)
+  - [Write a Feature File](#write-a-feature-file)
+  - [Write a Test File](#write-a-test-file)
+  - [Run the tests and copy the step definition snippets from the output](#run-the-tests-and-copy-the-step-definition-snippets-from-the-output)
+  - [Copy and Paste the Step Functions](#copy-and-paste-the-step-functions)
+  - [Burpless Step Functions](#burpless-step-functions)
+    - [Doc Strings and Data Tables](#doc-strings-and-data-tables)
+  - [Update the Step Functions to Pass the Test](#update-the-step-functions-to-pass-the-test)
+- [License](#license)
+
 ## Usage
 
 ### Add the Dependency
@@ -169,7 +180,7 @@ may not immediately make sense:
 - What is this `^io.cucumber.datatable.DataTable dataTable` argument all about?
 - What does this comment mean?
 ```clojure
- ;; Be sure to also adorn your step function with the ^:datatable metadata 
+ ;; Be sure to also adorn your step function with the ^:datatable metadata
  ;; in order for the runtime to properly identify it and pass the datatable argument
 ```
 Let's try to answer these questions in the next section.
@@ -184,7 +195,7 @@ We use the burpless macro, `step`, to define our step functions. It takes three 
 - A Clojure keyword representing one of the [Gherkin keywords](https://cucumber.io/docs/gherkin/reference/#keywords)
 - A string representing either a [CucumberExpression](https://github.com/cucumber/cucumber-expressions#readme) (preferred) or
 [RegularExpression](https://en.wikipedia.org/wiki/Regular_expression) pattern to match for the step
-  - (all regular expression patterns must start with `^` and end with `$` or they will be interpreted as 
+  - (all regular expression patterns must start with `^` and end with `$` or they will be interpreted as
     cucumber expressions by the Cucumber runtime.)
 - The function to call when executing the step. Every step function will receive the current value of the state atom
 as its first argument. Any output parameters (`CucumberExpression`) or capture groups (`RegularExpression`) matched in
@@ -201,7 +212,7 @@ will report that step as undefined.
 
 The current design of the Cucumber JVM library tries to make it very easy to identify the code that should run for a
 particular Gherkin step - assuming that your JVM language is strongly typed, and has excellent annotation support.
-Just [annotate your methods with the appropriate annotation(s)](https://cucumber.io/docs/cucumber/step-definitions/?lang=java), 
+Just [annotate your methods with the appropriate annotation(s)](https://cucumber.io/docs/cucumber/step-definitions/?lang=java),
 and the cucumber runtime does the rest!
 
 Coming from Clojure, that's two strikes against us.
@@ -233,7 +244,7 @@ you must tag your step function with the `^:docstring` metadata:
       (fn [state ^io.cucumber.docstring.DocString docString]
         ;; Do something interesting with the state and docString, returning an updated state
         ))
- 
+
 ```
 
 ### Update the Step Functions to Pass the Test
@@ -312,13 +323,13 @@ Happy Cucumbering!
 ## License
 
     Copyright 2023 Daniel Miladinov
-    
+
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
-    
+
       http://www.apache.org/licenses/LICENSE-2.0
-    
+
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
