@@ -23,6 +23,8 @@
 *.jar
 *.swp
 *~
+*.iml
+/.idea
 /checkouts
 /classes
 /target
