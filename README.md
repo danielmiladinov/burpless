@@ -45,7 +45,7 @@ For now, it's relatively empty, but we'll be adding more to it shortly:
 ```clojure
 (ns my-first-feature-test
   (:require [clojure.test :refer [deftest is]]
-            [danielmiladinov.burpless :refer [run-cucumber step]]))
+            [burpless :refer [run-cucumber step]]))
 
 (def steps
   [])
