@@ -22,8 +22,7 @@ Library name suggested by [Roman Ostash](https://github.com/Romacoding).
 Add it to your `deps.edn`:
 ```clojure
 {:deps {danielmiladinov/burpless {:git/url "https://github.com/danielmiladinov/burpless"
-                                  :git/tag "0.0.1"
-                                  :git/sha "064ae51771f0696dc7d4adb13890d13437b592df"}}}
+                                  :sha "064ae51771f0696dc7d4adb13890d13437b592df"}}}
 ```
 
 ### Write a Feature File
