@@ -128,7 +128,7 @@
          parameter-infos)
 
        (^String getPattern [_]
-         (str pattern))
+         pattern-str)
 
        (^boolean isDefinedAt [_ ^StackTraceElement element]
          (and (= line (.getLineNumber element))
