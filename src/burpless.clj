@@ -48,7 +48,7 @@
        (reify TypeResolver
          (^Type resolve [_] type))))))
 
-(defmulti ^:private build-parameter-infos
+(defmulti ^:private to-parameter-infos
 
           "There's more than one way to produce a list of ParameterInfo objects from a StepExpression,
           and we decide which method to use by dispatching on the type of the incoming StepExpression.
@@ -88,13 +88,13 @@
 ;; Unrecognized parameter types (any not found in the cucumber-expression-parameter-types map above) will need special
 ;; treatment.
 ;; The defmethod macro doesn't allow for docstrings or else this comment block would have been a docstring :-/
-(defmethod ^:private build-parameter-infos CucumberExpression
+(defmethod ^:private to-parameter-infos CucumberExpression
   [^CucumberExpression expression]
   (or (->> (re-seq #"((?<!\\)\{.*?\})" (.getSource expression))
            (mapv (comp to-parameter-info cucumber-expression-parameter-types second)))
       []))
 
-(defmethod ^:private build-parameter-infos RegularExpression
+(defmethod ^:private to-parameter-infos RegularExpression
   [^RegularExpression expression]
   (let [registry       (access-private-field expression 'parameterTypeRegistry)
 
@@ -117,7 +117,7 @@
    (let [pattern-str     (str pattern)
          fn-metadata     (meta function)
          expression      (.createExpression expression-factory pattern-str)
-         parameter-infos (cond-> (build-parameter-infos expression)
+         parameter-infos (cond-> (to-parameter-infos expression)
                                  (:datatable fn-metadata) (conj (to-parameter-info DataTable))
                                  (:docstring fn-metadata) (conj (to-parameter-info DocString)))]
      (reify StepDefinition
