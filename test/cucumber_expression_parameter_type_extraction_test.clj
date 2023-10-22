@@ -109,4 +109,4 @@
            state))])
 
 (deftest using-cucumber-expressions
-  (is (= 0 (run-cucumber "resources/features/cucumber-expression-parameter-type-extraction.feature" steps))))
+  (is (zero? (run-cucumber "resources/features/cucumber-expression-parameter-type-extraction.feature" steps))))
