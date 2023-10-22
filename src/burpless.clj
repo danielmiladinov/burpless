@@ -177,11 +177,10 @@
        (.getSimpleName arg-type))
      (str arg-type))))
 
-
 (defn- create-clojure-cucumber-backend
-  "Given a collection of step and/or hook descriptors, return a Clojure-friendly Cucumber Backend implementation."
-  (^Backend [steps-or-hooks state-atom]
-   (let [{steps :step hooks :hook} (group-by :type steps-or-hooks)]
+  "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
+  (^Backend [glues state-atom]
+   (let [{steps :step hooks :hook} (group-by :glue-type glues)]
      (reify Backend
        (^void loadGlue [_ ^Glue glue ^List _gluePaths]
          (let [registry           (ParameterTypeRegistry. (Locale/getDefault))
@@ -234,8 +233,8 @@
                  (str/replace "\"" "\\\"")))))))))
 
 (defn- create-cucumber-runtime
-  "Given some args, steps / hooks, and a state atom, return a Clojure-friendly implementation of the Cucumber runtime."
-  [args steps state-atom]
+  "Given some args, glues, and a state atom, return a Clojure-friendly implementation of the Cucumber runtime."
+  [args glues state-atom]
   (let [properties-file-options (-> (CucumberPropertiesParser.)
                                     (.parse (CucumberProperties/fromPropertiesFile))
                                     (.build))
@@ -256,7 +255,7 @@
         exit-status             (-> (.exitStatus cli-options-parser)
                                     (.orElse nil))]
     (or exit-status
-        (let [backend (create-clojure-cucumber-backend steps state-atom)
+        (let [backend (create-clojure-cucumber-backend glues state-atom)
               runtime (-> (io.cucumber.core.runtime.Runtime/builder) ;; disambiguated from java.lang.Runtime
                           (.withRuntimeOptions runtime-options)
                           (.withBackendSupplier (reify BackendSupplier (get [_] (vector backend))))
@@ -276,30 +275,33 @@
                 are provided as parameters."
   [kw pattern step-fn]
   (let [line (:line (meta &form))]
-    `{:type     :step
-      :kw       ~kw
-      :pattern  ~pattern
-      :function ~(vary-meta step-fn #(select-keys % [:datatable :docstring]))
-      :line     ~line
-      :file     ~*file*}))
+    `{:glue-type :step
+      :kw        ~kw
+      :pattern   ~pattern
+      :function  ~(vary-meta step-fn #(select-keys % [:datatable :docstring]))
+      :line      ~line
+      :file      ~*file*}))
 
 
 (defmacro hook
   "Create a hook map"
   [phase hook-fn]
   (let [line (:line (meta &form))]
-    `{:type     :hook
-      :phase    ~phase
-      :order    0
-      :function ~hook-fn
-      :line     ~line
-      :file     ~*file*}))
+    `{:glue-type :hook
+      :phase     ~phase
+      :order     0
+      :function  ~hook-fn
+      :line      ~line
+      :file      ~*file*}))
 
 (defn run-cucumber
-  "Run the cucumber features at `features-path` using the given `steps`.
+  "Run the cucumber features at `features-path` using the given `glues`.
 
-  `steps` should be a sequence of step definition maps; these can be
-  created easily using the `step` macro.
+  `glues` should be a sequence of glue definition maps - glues can be one of the following:
+  - steps
+  - hooks
+
+  There are macros, `step`, and `hook`, which let you easily create glues of the desired type.
 
   Defaults to using the pretty plugin with monochrome disabled.
   Feel free to call passing different args to suit your needs if desired.
@@ -310,8 +312,8 @@
   Zero indicates test success; non-zero values imply something went wrong."
   ([x y]
    (run-cucumber x y ["--plugin" "pretty"]))
-  ([features-path steps args]
+  ([features-path glues args]
    (let [state-atom (atom nil)
-         runtime    (create-cucumber-runtime (conj (vec args) features-path) steps state-atom)]
+         runtime    (create-cucumber-runtime (conj (vec args) features-path) glues state-atom)]
      (.run runtime)
      (.exitStatus runtime))))
