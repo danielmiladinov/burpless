@@ -5,6 +5,9 @@ inspired by [auxoncorp/clj-cucumber](https://github.com/auxoncorp/clj-cucumber).
 
 Library name suggested by [Roman Ostash](https://github.com/Romacoding).
 
+Changes made in this branch are to facilitate its use from the [lein-tools-deps](https://github.com/RickMoynihan/lein-tools-deps)
+plugin for [Leiningen](https://leiningen.org/).
+
 - [Usage](#usage)
   - [Add the Dependency](#add-the-dependency)
   - [Write a Feature File](#write-a-feature-file)
@@ -22,7 +25,7 @@ Library name suggested by [Roman Ostash](https://github.com/Romacoding).
 Add it to your `deps.edn`:
 ```clojure
 {:deps {danielmiladinov/burpless {:git/url "https://github.com/danielmiladinov/burpless"
-                                  :sha "064ae51771f0696dc7d4adb13890d13437b592df"}}}
+                                  :sha "c81b841dbe25863d4350e6e68cda5df27150fba8"}}}
 ```
 
 ### Write a Feature File
