@@ -1,10 +1,10 @@
 (ns burpless
   (:require [clojure.string :as str])
-  (:import (clojure.lang Atom Symbol)
-           (io.cucumber.core.backend Backend Glue HookDefinition ParameterInfo Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
+  (:import (clojure.lang Atom Keyword Symbol)
+           (io.cucumber.core.backend Backend Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
            (io.cucumber.core.options CommandlineOptionsParser CucumberProperties CucumberPropertiesParser)
            (io.cucumber.core.runtime BackendSupplier)
-           (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterTypeRegistry RegularExpression)
+           (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
            (io.cucumber.datatable DataTable)
            (io.cucumber.docstring DocString)
            (java.lang.reflect Field Method Type)
@@ -65,22 +65,7 @@
           after initialization via calls to its defineParameterType method.
           See also: https://github.com/cucumber/cucumber-expressions/blob/main/java/src/main/java/io/cucumber/cucumberexpressions/ParameterTypeRegistry.java"
 
-          type)
-
-(def ^:private cucumber-expression-parameter-types
-  "A map of CucumberExpression parameter type strings keyed to the JVM types they map to.
-  See also: https://github.com/cucumber/cucumber-expressions#parameter-types"
-  {"{int}"        Integer
-   "{float}"      Float
-   "{word}"       String
-   "{string}"     String
-   "{}"           String
-   "{bigdecimal}" BigDecimal
-   "{double}"     Double
-   "{biginteger}" BigInteger
-   "{byte}"       Byte
-   "{short}"      Short
-   "{long}"       Long})
+          (comp type :expression))
 
 ;; Given a CucumberExpression, get at its source property, which is the actual string which we expect to contain zero
 ;; or more embedded parameter type expressions.
@@ -89,16 +74,21 @@
 ;; treatment.
 ;; The defmethod macro doesn't allow for docstrings or else this comment block would have been a docstring :-/
 (defmethod ^:private to-parameter-infos CucumberExpression
-  [^CucumberExpression expression]
-  (or (->> (re-seq #"((?<!\\)\{.*?\})" (.getSource expression))
-           (mapv (comp to-parameter-info cucumber-expression-parameter-types second)))
-      []))
+  [{:keys [^CucumberExpression expression
+           ^ParameterTypeRegistry registry]}]
+  (let [parameter-types (->> (invoke-private-method registry 'getParameterTypes)
+                             (reduce (fn [m p]
+                                       (assoc m (format "{%s}" (.getName p))
+                                              (.getType p)))
+                                     {}))]
+    (or (->> (re-seq #"((?<!\\)\{.*?\})" (.getSource expression))
+             (mapv (comp to-parameter-info parameter-types second)))
+        [])))
 
 (defmethod ^:private to-parameter-infos RegularExpression
-  [^RegularExpression expression]
-  (let [registry       (access-private-field expression 'parameterTypeRegistry)
-
-        capture-groups (-> (access-private-field expression 'treeRegexp)
+  [{:keys [^RegularExpression expression
+           ^ParameterTypeRegistry registry]}]
+  (let [capture-groups (-> (access-private-field expression 'treeRegexp)
                            (access-private-field 'groupBuilder)
                            (access-private-field 'groupBuilders))]
     (mapv (fn [^GroupBuilder capture-group]
@@ -109,17 +99,19 @@
           capture-groups)))
 
 (defn- to-step-definition
-  "Given an ExpressionFactory, a map describing the step definition to be built, and a state atom,
+  "Given a ParameterTypeRegistry, a map describing the step definition to be built, and a state atom,
   return a StepDefinition implementation which after execution its effects should be observable in the state atom."
-  (^StepDefinition [^ExpressionFactory expression-factory
+  (^StepDefinition [^ParameterTypeRegistry registry
                     {:keys [pattern function file line]}
                     ^Atom state-atom]
-   (let [pattern-str     (str pattern)
-         fn-metadata     (meta function)
-         expression      (.createExpression expression-factory pattern-str)
-         parameter-infos (cond-> (to-parameter-infos expression)
-                                 (:datatable fn-metadata) (conj (to-parameter-info DataTable))
-                                 (:docstring fn-metadata) (conj (to-parameter-info DocString)))]
+   (let [expression-factory (ExpressionFactory. registry)
+         pattern-str        (str pattern)
+         fn-metadata        (meta function)
+         expression         (.createExpression expression-factory pattern-str)
+         parameter-infos    (cond-> (to-parameter-infos {:expression expression
+                                                         :registry   registry})
+                                    (:datatable fn-metadata) (conj (to-parameter-info DataTable))
+                                    (:docstring fn-metadata) (conj (to-parameter-info DocString)))]
      (reify StepDefinition
        (^void execute [_ ^objects args]
          (apply swap! state-atom function args))
@@ -177,14 +169,49 @@
        (.getSimpleName arg-type))
      (str arg-type))))
 
+(defn- to-parameter-type
+  "Given a parameter-type descriptor map, return a ParameterType instance"
+  (^ParameterType [{:keys [name regexps to-type transform
+                           use-for-snippets? prefer-for-regexp? strong-type-hint?]}]
+   (ParameterType. ^String name
+                   ^List (map str regexps)
+                   ^Type to-type
+                   ^Transformer (reify Transformer
+                                  (^Object transform [_ ^String arg]
+                                    (transform arg)))
+                   ^boolean use-for-snippets?
+                   ^boolean prefer-for-regexp?
+                   ^boolean strong-type-hint?)))
+
+(defn- register-custom-parameter-type
+  "Given a custom ParameterType, add it to both the provided glue and the parameter type registry.
+  It must be added to both or else step functions will not be properly matched to gherkin steps at run time."
+  [glue registry ^ParameterType parameter-type]
+  (.addParameterType glue (reify ParameterTypeDefinition (^ParameterType parameterType [_] parameter-type)))
+  (.defineParameterType registry parameter-type))
+
 (defn- create-clojure-cucumber-backend
   "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
   (^Backend [glues state-atom]
-   (let [{steps :step hooks :hook} (group-by :glue-type glues)]
+   (let [{steps :step hooks :hook parameter-types :parameter-type} (group-by :glue-type glues)]
      (reify Backend
        (^void loadGlue [_ ^Glue glue ^List _gluePaths]
-         (let [registry           (ParameterTypeRegistry. (Locale/getDefault))
-               expression-factory (ExpressionFactory. registry)]
+         (let [registry (ParameterTypeRegistry. (Locale/getDefault))]
+
+           (register-custom-parameter-type
+             glue
+             registry
+             (ParameterType. "keyword"
+                             ^List (map str [#":(\S+)"])
+                             ^Type Keyword
+                             ^Transformer (reify Transformer
+                                            (^Object transform [_ ^String arg]
+                                              (keyword arg)))
+                             true true true))
+
+           (doseq [parameter-type (map to-parameter-type parameter-types)]
+             (register-custom-parameter-type glue registry parameter-type))
+
            (doseq [{:keys [phase] :as hook} hooks
                    :let [hook-def (to-hook-definition hook state-atom)]]
              (case phase
@@ -196,7 +223,7 @@
                :after-step (.addAfterStepHook glue hook-def)))
 
            (doseq [step steps]
-             (.addStepDefinition glue (to-step-definition expression-factory step state-atom)))))
+             (.addStepDefinition glue (to-step-definition registry step state-atom)))))
 
        (^void buildWorld [_])
        (^void disposeWorld [_])
@@ -293,6 +320,24 @@
       :function  ~hook-fn
       :line      ~line
       :file      ~*file*}))
+
+(defmacro parameter-type
+  "Create a parameter-type map"
+  [{:keys [name regexps to-type transform use-for-snippets? prefer-for-regexp? strong-type-hint?]
+    :or   {use-for-snippets?  true
+           prefer-for-regexp? true
+           strong-type-hint?  true}}]
+  (let [line (:line (meta &form))]
+    `{:glue-type          :parameter-type
+      :name               ~name
+      :regexps            ~regexps
+      :to-type            ~to-type
+      :transform          ~transform
+      :use-for-snippets?  ~use-for-snippets?
+      :prefer-for-regexp? ~prefer-for-regexp?
+      :strong-type-hint?  ~strong-type-hint?
+      :line               ~line
+      :file               ~*file*}))
 
 (defn run-cucumber
   "Run the cucumber features at `features-path` using the given `glues`.
