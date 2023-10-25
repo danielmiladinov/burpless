@@ -6,21 +6,21 @@
 
 (def simple-feature-steps
   [(hook :before
-         (fn before-hook [_]
+         (constantly
            {:before-hook-happened true
             :before-step-count    0
             :after-step-count     0}))
 
    (hook :before-step
-         (fn before-step-hook [state]
+         (fn before-step-hook [state _]
            (update state :before-step-count inc)))
 
    (hook :after-step
-         (fn after-step-hook [state]
+         (fn after-step-hook [state _]
            (update state :after-step-count inc)))
 
    (hook :after
-         (fn after-hook [state]
+         (fn after-hook [state _]
            (reset! after-hook-happened true)
            state))
 

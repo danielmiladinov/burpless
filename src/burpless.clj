@@ -12,8 +12,6 @@
            (java.util List Locale Map)
            (java.util.function Supplier)))
 
-(def ^:dynamic *current-scenario-name* nil)
-
 (defn- access-private-field
   "Given an object instance and a symbol referring to one of its non-public fields,
   return that field's value."
@@ -140,9 +138,8 @@
 
                                (^int getOrder [_] order))
     (reify HookDefinition
-      (^void execute [_ ^TestCaseState state]
-        (binding [*current-scenario-name* (.getName state)]
-          (swap! state-atom function)))
+      (^void execute [_ ^TestCaseState testCaseState]
+        (swap! state-atom function testCaseState))
 
       (^String getTagExpression [_]
         ; TODO feature tag expressions

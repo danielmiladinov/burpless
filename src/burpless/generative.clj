@@ -2,7 +2,8 @@
   (:require [burpless]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]))
+            [clojure.test.check.properties :as prop])
+  (:import (io.cucumber.core.backend TestCaseState)))
 
 (def ^{:dynamic true
        :doc     "The number of quick-check iterations to run"}
@@ -17,9 +18,9 @@
   "A hook which initializes the test state for generative testing support."
   (burpless/hook
     :before
-    (fn [_]
+    (fn [_state ^TestCaseState testCaseState]
       {::env-gen              (gen/return {})
-       ::scenario-name        burpless/*current-scenario-name*
+       ::scenario-name        (.getName testCaseState)
        ::properties           []
        ::pre-generator-steps  []
        ::post-generator-steps []
@@ -112,7 +113,7 @@
 (defn after-hook-with-cleanup [cleanup]
   (burpless/hook
     :after
-    (fn [state]
+    (fn [state ^TestCaseState _testCaseState]
       (let [env-gen (::env-gen state)
             env-gen (if *no-shrinking*
                       (gen/no-shrink env-gen)
