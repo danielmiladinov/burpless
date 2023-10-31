@@ -48,6 +48,31 @@
       :line               ~line
       :file               ~*file*}))
 
+(defmacro datatable-type
+  "Create a datatable-type map.
+  The following keys are required:
+  - :from-type -> one of the following keywords: :table, :row, :entry, :cell
+  - :to-type   -> the return type of the transform function, an instance of java.lang.reflect.Type
+  - :transform -> a function that is expected to receive an argument of one of the following types:
+                  :table -> DataTable  (the entire datatable)
+                  :row   -> List<String> (a list of cells in a datatable row)
+                  :entry -> Map<String, String> (a map of column names to column values), one for each row
+                  :cell  -> String (a single datable cell)
+
+                  The input argument corresponds to the value of :from-type
+                  The transform fn should return a value of :to-type"
+
+  [{:keys [to-type
+           from-type
+           transform]}]
+  (let [line (:line (meta &form))]
+    `{:glue-type :datatable-type
+      :to-type   ~to-type
+      :from-type ~from-type
+      :transform ~transform
+      :line      ~line
+      :file      ~*file*}))
+
 (defn run-cucumber
   "Run the cucumber features at `features-path` using the given `glues`.
 
