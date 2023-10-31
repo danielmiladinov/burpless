@@ -1,13 +1,13 @@
 (ns burpless.runtime
   (:require [clojure.string :as str])
   (:import (clojure.lang Atom Keyword Symbol)
-           (io.cucumber.core.backend Backend Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
+           (io.cucumber.core.backend Backend DataTableTypeDefinition Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
            (io.cucumber.core.options CommandlineOptionsParser CucumberProperties CucumberPropertiesParser)
            (io.cucumber.core.runtime BackendSupplier)
            (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
-           (io.cucumber.datatable DataTable)
+           (io.cucumber.datatable DataTable DataTableType DataTableTypeRegistry TableCellTransformer TableEntryTransformer TableRowTransformer TableTransformer)
            (io.cucumber.docstring DocString)
-           (java.lang.reflect Field Method Type)
+           (java.lang.reflect Field Method ParameterizedType Type)
            (java.text MessageFormat)
            (java.util List Locale Map)
            (java.util.function Supplier)))
@@ -96,6 +96,33 @@
               (to-parameter-info inner-type)))
           capture-groups)))
 
+(defn- to-datatable-parameter-info
+  "Given a map of fn metadata known to contain a :datable key, based on its value,
+  return the appropriate ParameterInfo instance."
+  (^ParameterInfo [{:keys [datatable] :as fn-metadata}]
+   (to-parameter-info
+     (cond (true? datatable) DataTable
+
+           (instance? Type datatable) datatable
+
+           (and (vector? datatable)
+                (instance? Type (first datatable)))
+           (reify ParameterizedType
+             ;; Type hint for Java Type array (i.e. Type[] in Java)
+             (^"[Ljava.lang.reflect.Type;" getActualTypeArguments [_]
+               (into-array Type datatable))
+             (^Type getRawType [_]
+               List)
+             (^Type getOwnerType [_]
+               nil))
+
+           :else
+           (throw (ex-info (str "Unexpected step fn metadata - :datable value should either be:\n"
+                                "- boolean true,\n"
+                                "- a Type instance, or\n"
+                                "- a vector containing a Type instance")
+                           fn-metadata))))))
+
 (defn- to-step-definition
   "Given a ParameterTypeRegistry, a map describing the step definition to be built, and a state atom,
   return a StepDefinition implementation which after execution its effects should be observable in the state atom."
@@ -108,7 +135,7 @@
          expression         (.createExpression expression-factory pattern-str)
          parameter-infos    (cond-> (to-parameter-infos {:expression expression
                                                          :registry   registry})
-                                    (:datatable fn-metadata) (conj (to-parameter-info DataTable))
+                                    (:datatable fn-metadata) (conj (to-datatable-parameter-info fn-metadata))
                                     (:docstring fn-metadata) (conj (to-parameter-info DocString)))]
      (reify StepDefinition
        (^void execute [_ ^objects args]
@@ -157,11 +184,11 @@
 
 (defn- type-of
   "Return a representation of a given argument type.
-  DataTables get special treatment, in that we return the full name.
+  DataTables and Keywords get special treatment, in that we return the full name.
   For all other types, return the simple name."
   (^String [arg-type]
    (if (instance? Class arg-type)
-     (if (.equals arg-type DataTable)
+     (if (#{DataTable Keyword} arg-type)
        (.getName arg-type)
        (.getSimpleName arg-type))
      (str arg-type))))
@@ -183,21 +210,70 @@
 (defn- register-custom-parameter-type
   "Given a custom ParameterType, add it to both the provided glue and the parameter type registry.
   It must be added to both or else step functions will not be properly matched to gherkin steps at run time."
-  [glue registry ^ParameterType parameter-type]
+  [^Glue glue ^ParameterTypeRegistry parameter-type-registry ^ParameterType parameter-type]
   (.addParameterType glue (reify ParameterTypeDefinition (^ParameterType parameterType [_] parameter-type)))
-  (.defineParameterType registry parameter-type))
+  (.defineParameterType parameter-type-registry parameter-type))
+
+(defmulti ^:private to-datatable-type
+          "Given a datatable-type descriptor map, return a DataTableType instance"
+          :from-type)
+
+(defmethod ^:private to-datatable-type :table
+  (^DataTableType [{:keys [to-type transform]}]
+   (DataTableType. ^Type to-type
+                   ^TableTransformer
+                   (reify TableTransformer
+                     (transform [_ ^DataTable table]
+                       (transform table))))))
+
+(defmethod ^:private to-datatable-type :row
+  (^DataTableType [{:keys [to-type transform]}]
+   (DataTableType. ^Type to-type
+                   ^TableRowTransformer
+                   (reify TableRowTransformer
+                     (transform [_ ^List row]
+                       (transform row))))))
+
+(defmethod ^:private to-datatable-type :entry
+  (^DataTableType [{:keys [to-type transform]}]
+   (DataTableType. ^Type to-type
+                   ^TableEntryTransformer
+                   (reify TableEntryTransformer
+                     (transform [_ ^Map entry]
+                       (transform entry))))))
+
+(defmethod ^:private to-datatable-type :cell
+  (^DataTableType [{:keys [to-type transform]}]
+   (DataTableType. ^Type to-type
+                   ^TableCellTransformer
+                   (reify TableCellTransformer
+                     (transform [_ ^String cell]
+                       (transform cell))))))
+
+(defn- register-custom-datatable-type
+  "Given a custom DataTableType, add it to both the provided glue and the datatable type registry.
+  It must be added to both or else step functions will not be properly matched to gherkin steps at run time."
+  [^Glue glue ^DataTableTypeRegistry datatable-type-registry ^DataTableType datatable-type]
+  (.addDataTableType glue (reify DataTableTypeDefinition (^DataTableType dataTableType [_] datatable-type)))
+  (.defineDataTableType datatable-type-registry datatable-type))
 
 (defn- create-clojure-cucumber-backend
   "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
   (^Backend [glues state-atom]
-   (let [{steps :step hooks :hook parameter-types :parameter-type} (group-by :glue-type glues)]
+   (let [{steps :step hooks :hook parameter-types :parameter-type datatable-types :datatable-type}
+         (group-by :glue-type glues)]
      (reify Backend
        (^void loadGlue [_ ^Glue glue ^List _gluePaths]
-         (let [registry (ParameterTypeRegistry. (Locale/getDefault))]
+         (let [locale                  (Locale/getDefault)
+               parameter-type-registry (ParameterTypeRegistry. locale)
+               datatable-type-registry (DataTableTypeRegistry. locale)]
+
+           (doseq [datatable-type (map to-datatable-type datatable-types)]
+             (register-custom-datatable-type glue datatable-type-registry datatable-type))
 
            (register-custom-parameter-type
              glue
-             registry
+             parameter-type-registry
              (ParameterType. "keyword"
                              ^List (map str [#":(\S+)"])
                              ^Type Keyword
@@ -207,7 +283,7 @@
                              true true true))
 
            (doseq [parameter-type (map to-parameter-type parameter-types)]
-             (register-custom-parameter-type glue registry parameter-type))
+             (register-custom-parameter-type glue parameter-type-registry parameter-type))
 
            (doseq [{:keys [phase] :as hook} hooks
                    :let [hook-def (to-hook-definition hook state-atom)]]
@@ -220,7 +296,7 @@
                :after-step (.addAfterStepHook glue hook-def)))
 
            (doseq [step steps]
-             (.addStepDefinition glue (to-step-definition registry step state-atom)))))
+             (.addStepDefinition glue (to-step-definition parameter-type-registry step state-atom)))))
 
        (^void buildWorld [_])
        (^void disposeWorld [_])
