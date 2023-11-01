@@ -1,4 +1,5 @@
 (ns burpless.conversions
+  (:require [clojure.edn :as edn])
   (:import (io.cucumber.datatable DataTable)))
 
 (defn read-cucumber-string
@@ -11,7 +12,7 @@
    then we should return the input string unchanged."
   [^String cucumber-string]
   (when cucumber-string
-    (let [result (read-string cucumber-string)]
+    (let [result (edn/read-string cucumber-string)]
       (if (symbol? result)
         cucumber-string
         result))))

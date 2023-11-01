@@ -29,16 +29,13 @@
    (step :Given "I have a table of data with key names in the first row:"
          ^:datatable
          (fn [_state ^DataTable dataTable]
-           ;; Write code here that turns the phrase above into concrete actions
-           ;; Be sure to also adorn your step function with the ^:datatable metadata
-           ;; in order for the runtime to properly identify it and pass the datatable argument
            (conversions/data-table->maps dataTable)))
 
    (step :Then "my state should be equal to the following Clojure literal:"
          ^:docstring
          (fn [actual-state ^DocString docString]
-           (let [expected-state (read-string (.getContent docString))]
-             (is (= expected-state actual-state)))))])
+           (let [expected-state (conversions/read-cucumber-string (.getContent docString))]
+             (assert (= expected-state actual-state)))))])
 
 (deftest datatable-and-docstrings
   (is (zero? (run-cucumber "resources/features/datatables-and-docstrings.feature" datatables-and-docstrings-steps))))
