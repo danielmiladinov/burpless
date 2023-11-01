@@ -250,13 +250,6 @@
                      (transform [_ ^String cell]
                        (transform cell))))))
 
-(defn- register-custom-datatable-type
-  "Given a custom DataTableType, add it to both the provided glue and the datatable type registry.
-  It must be added to both or else step functions will not be properly matched to gherkin steps at run time."
-  [^Glue glue ^DataTableTypeRegistry datatable-type-registry ^DataTableType datatable-type]
-  (.addDataTableType glue (reify DataTableTypeDefinition (^DataTableType dataTableType [_] datatable-type)))
-  (.defineDataTableType datatable-type-registry datatable-type))
-
 (defn- create-clojure-cucumber-backend
   "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
   (^Backend [glues state-atom]
@@ -265,11 +258,10 @@
      (reify Backend
        (^void loadGlue [_ ^Glue glue ^List _gluePaths]
          (let [locale                  (Locale/getDefault)
-               parameter-type-registry (ParameterTypeRegistry. locale)
-               datatable-type-registry (DataTableTypeRegistry. locale)]
+               parameter-type-registry (ParameterTypeRegistry. locale)]
 
            (doseq [datatable-type (map to-datatable-type datatable-types)]
-             (register-custom-datatable-type glue datatable-type-registry datatable-type))
+             (.addDataTableType glue (reify DataTableTypeDefinition (^DataTableType dataTableType [_] datatable-type))))
 
            (register-custom-parameter-type
              glue
