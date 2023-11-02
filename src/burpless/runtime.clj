@@ -133,10 +133,26 @@
 
            (instance? Type docstring) docstring
 
+           ;; TODO - Do we need to support this? Maybe we need a real-world example or two...
+           (and (vector? docstring)
+                (< 1 (count docstring))
+                (instance? Type (first docstring))
+                (every? (partial instance? Type) (rest docstring)))
+           (let [[raw-type & type-arguments] docstring]
+             (reify ParameterizedType
+               ;; Type hint for Java Type array (i.e. Type[] in Java)
+               (^"[Ljava.lang.reflect.Type;" getActualTypeArguments [_]
+                 (into-array Type type-arguments))
+               (^Type getRawType [_]
+                 raw-type)
+               (^Type getOwnerType [_]
+                 nil)))
+
            :else
            (throw (ex-info (str "Unexpected step fn metadata - :datable value should either be:\n"
-                                "- boolean true, or\n"
-                                "- a Type instance\n")
+                                "- boolean true,\n"
+                                "- a Type instance, or\n"
+                                "- a vector describing a parameterized type - one raw type followed by one or more type arguments")
                            fn-metadata))))))
 
 (defn- to-step-definition
