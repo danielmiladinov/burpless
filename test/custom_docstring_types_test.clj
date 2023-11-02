@@ -1,9 +1,11 @@
 (ns custom-docstring-types-test
-  (:require [burpless :refer [run-cucumber step]]
+  (:require [burpless :refer [docstring-type parameter-type run-cucumber step]]
             [burpless.conversions :as conversions]
+            [camel-snake-kebab.core :as csk]
+            [clojure.data.json :as json]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]])
-  (:import (clojure.lang IObj)
+  (:import (clojure.lang IObj Keyword)
            (io.cucumber.datatable DataTable)
            (java.lang.reflect Type)))
 
@@ -38,3 +40,33 @@
 
 (deftest from-edn
   (is (zero? (run-cucumber "resources/features/custom-docstring-types/from-edn.feature" from-edn-steps))))
+
+
+(def from-json-steps
+  [(step :Given "that my state starts out as an empty map"
+         (constantly {}))
+
+   (step :Given "I want to store the following in my state's {keyword} key"
+         ^{:docstring IObj}
+         (fn [state ^Keyword kw ^IObj data]
+           (assoc state kw data)))
+
+   (step :When "I compare the my state's {keyword} and {keyword} keys to each other for equality, storing the result in {keyword}"
+         (fn [state ^Keyword kw-1 ^Keyword kw-2 ^Keyword kw-3]
+           (assoc state kw-3 (= (kw-1 state) (kw-2 state)))))
+
+   (step :Then "my state's {keyword} equality value should be {boolean}"
+         (fn [state ^Keyword kw ^Boolean equal?]
+           (assert equal? (kw state))
+           state))
+
+   (docstring-type {:content-type "json"
+                    :to-type      IObj
+                    :transform    (fn [s] (json/read-str s :key-fn csk/->kebab-case-keyword))})
+
+   (parameter-type {:name      "boolean"
+                    :regexps   [#"(?i)true|false"]
+                    :to-type   Boolean
+                    :transform (fn [s] (Boolean/valueOf ^String s))})])
+(deftest from-json
+  (is (zero? (run-cucumber "resources/features/custom-docstring-types/from-json.feature" from-json-steps))))

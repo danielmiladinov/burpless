@@ -73,6 +73,24 @@
       :line      ~line
       :file      ~*file*}))
 
+(defmacro docstring-type
+  "Create a docstring-type-map.
+  The following keys are required:
+  - :content-type -> the GFM info string or media type that decorates the docstrings you wish to transform
+  - :to-type      -> the return type of the transform function, an instance of java.lang.reflect.Type
+  - :transform    -> a function that is expected to receive the string content of the docstring, and transform it into
+                     the type represented by :to-type."
+  [{:keys [content-type
+           to-type
+           transform]}]
+  (let [line (:line (meta &form))]
+    `{:glue-type    :docstring-type
+      :content-type ~content-type
+      :to-type      ~to-type
+      :transform    ~transform
+      :line         ~line
+      :file         ~*file*}))
+
 (defn run-cucumber
   "Run the cucumber features at `features-path` using the given `glues`.
 

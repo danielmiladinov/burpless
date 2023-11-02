@@ -279,8 +279,11 @@
 (defn- create-clojure-cucumber-backend
   "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
   (^Backend [glues state-atom]
-   (let [{steps :step hooks :hook parameter-types :parameter-type datatable-types :datatable-type}
-         (group-by :glue-type glues)]
+   (let [{steps           :step
+          hooks           :hook
+          parameter-types :parameter-type
+          datatable-types :datatable-type
+          docstring-types :docstring-type} (group-by :glue-type glues)]
      (reify Backend
        (^void loadGlue [_ ^Glue glue ^List _gluePaths]
          (let [locale                  (Locale/getDefault)
@@ -294,6 +297,9 @@
                                        (to-docstring-type {:content-type "edn"
                                                            :to-type      IObj
                                                            :transform    edn/read-string}))))
+
+           (doseq [docstring-type (map to-docstring-type docstring-types)]
+             (.addDocStringType glue (reify DocStringTypeDefinition (^DocStringType docStringType [_] docstring-type))))
 
            (register-custom-parameter-type
              glue
