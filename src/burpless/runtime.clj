@@ -1,12 +1,13 @@
 (ns burpless.runtime
-  (:require [clojure.string :as str])
-  (:import (clojure.lang Atom Keyword Symbol)
-           (io.cucumber.core.backend Backend DataTableTypeDefinition Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str])
+  (:import (clojure.lang Atom IObj Keyword Symbol)
+           (io.cucumber.core.backend Backend DataTableTypeDefinition DocStringTypeDefinition Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
            (io.cucumber.core.options CommandlineOptionsParser CucumberProperties CucumberPropertiesParser)
            (io.cucumber.core.runtime BackendSupplier)
            (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
            (io.cucumber.datatable DataTable DataTableType DataTableTypeRegistry TableCellTransformer TableEntryTransformer TableRowTransformer TableTransformer)
-           (io.cucumber.docstring DocString)
+           (io.cucumber.docstring DocString DocStringType DocStringType$Transformer)
            (java.lang.reflect Field Method ParameterizedType Type)
            (java.text MessageFormat)
            (java.util List Locale Map)
@@ -123,6 +124,21 @@
                                 "- a vector containing a Type instance")
                            fn-metadata))))))
 
+(defn- to-docstring-parameter-info
+  "Given a map of fn metadata known to contain a :docstring key, based on its value,
+  return the appropriate ParameterInfo instance."
+  (^ParameterInfo [{:keys [docstring] :as fn-metadata}]
+   (to-parameter-info
+     (cond (true? docstring) DocString
+
+           (instance? Type docstring) docstring
+
+           :else
+           (throw (ex-info (str "Unexpected step fn metadata - :datable value should either be:\n"
+                                "- boolean true, or\n"
+                                "- a Type instance\n")
+                           fn-metadata))))))
+
 (defn- to-step-definition
   "Given a ParameterTypeRegistry, a map describing the step definition to be built, and a state atom,
   return a StepDefinition implementation which after execution its effects should be observable in the state atom."
@@ -136,7 +152,7 @@
          parameter-infos    (cond-> (to-parameter-infos {:expression expression
                                                          :registry   registry})
                                     (:datatable fn-metadata) (conj (to-datatable-parameter-info fn-metadata))
-                                    (:docstring fn-metadata) (conj (to-parameter-info DocString)))]
+                                    (:docstring fn-metadata) (conj (to-docstring-parameter-info fn-metadata)))]
      (reify StepDefinition
        (^void execute [_ ^objects args]
          (apply swap! state-atom function args))
@@ -250,6 +266,16 @@
                      (transform [_ ^String cell]
                        (transform cell))))))
 
+(defn- to-docstring-type
+  "Given a docstring-type descriptor map, return a DocStringType instance"
+  (^DocStringType [{:keys [content-type to-type transform]}]
+   (DocStringType. ^Type to-type
+                   ^String content-type
+                   ^DocStringType$Transformer
+                   (reify DocStringType$Transformer
+                     (transform [_ ^String content]
+                       (transform content))))))
+
 (defn- create-clojure-cucumber-backend
   "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
   (^Backend [glues state-atom]
@@ -262,6 +288,12 @@
 
            (doseq [datatable-type (map to-datatable-type datatable-types)]
              (.addDataTableType glue (reify DataTableTypeDefinition (^DataTableType dataTableType [_] datatable-type))))
+
+           (.addDocStringType glue (reify DocStringTypeDefinition
+                                     (^DocStringType docStringType [_]
+                                       (to-docstring-type {:content-type "edn"
+                                                           :to-type      IObj
+                                                           :transform    edn/read-string}))))
 
            (register-custom-parameter-type
              glue
