@@ -2,13 +2,13 @@
   (:require [burpless :refer [run-cucumber step parameter-type]]
             [clojure.test :refer [deftest is]])
   (:import
-    (clojure.lang Keyword PersistentArrayMap)
+    (clojure.lang Keyword PersistentHashMap)
     (io.cucumber.docstring DocString)))
 
 (def glues
   [(parameter-type {:name      "bar-map"
                     :regexps   [#"bar-map of (\d+)"]
-                    :to-type   PersistentArrayMap
+                    :to-type   PersistentHashMap
                     :transform (fn [^String num-string]
                                  (hash-map :bar (Long/valueOf num-string)))})
 
@@ -18,7 +18,7 @@
    (step :Given "burpless innately supports keyword parameter types" identity)
 
    (step :Given "I want to add a {bar-map} under the {keyword} key of my state"
-         (fn [state ^PersistentArrayMap bar-map ^Keyword kw]
+         (fn [state ^PersistentHashMap bar-map ^Keyword kw]
            (assoc state kw bar-map)))
 
    (step :Then "my state should look like this"
