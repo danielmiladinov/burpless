@@ -25,7 +25,7 @@ plugin for [Leiningen](https://leiningen.org/).
 Add it to your `deps.edn`:
 ```clojure
 {:deps {danielmiladinov/burpless {:git/url "https://github.com/danielmiladinov/burpless"
-                                  :sha "c81b841dbe25863d4350e6e68cda5df27150fba8"}}}
+                                  :sha "d5ab36b20642a689ce707d15932b9be4e177ac87"}}}
 ```
 
 ### Write a Feature File
