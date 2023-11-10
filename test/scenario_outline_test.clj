@@ -24,4 +24,4 @@
            state))])
 
 (deftest scenario-outline
-  (is (zero? (run-cucumber "resources/features/scenario-outline.feature" scenario-outline-steps))))
+  (is (zero? (run-cucumber "test-resources/features/scenario-outline.feature" scenario-outline-steps))))

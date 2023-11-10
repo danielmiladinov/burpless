@@ -55,4 +55,4 @@
            state))])
 
 (deftest simple-feature
-  (is (zero? (run-cucumber "resources/features/simple.feature" simple-feature-steps))))
+  (is (zero? (run-cucumber "test-resources/features/simple.feature" simple-feature-steps))))
