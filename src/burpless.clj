@@ -97,8 +97,11 @@
   `glues` should be a sequence of glue definition maps - glues can be one of the following:
   - steps
   - hooks
+  - parameter types
+  - datatable types
+  - docstring types
 
-  There are macros, `step`, and `hook`, which let you easily create glues of the desired type.
+  There are macros for each of the above, which let you easily create glues of the desired type.
 
   Defaults to using the pretty plugin with monochrome disabled.
   Feel free to call passing different args to suit your needs if desired.
@@ -108,9 +111,9 @@
   Returns a byte representing the exit code of the test.
   Zero indicates test success; non-zero values imply something went wrong."
   ([x y]
-   (run-cucumber x y ["--plugin" "pretty"]))
+   (run-cucumber x y {:plugin "pretty"}))
   ([features-path glues args]
    (let [state-atom (atom nil)
-         runtime    (create-cucumber-runtime (conj (vec args) features-path) glues state-atom)]
+         runtime    (create-cucumber-runtime (assoc args :features-path features-path) glues state-atom)]
      (.run runtime)
      (.exitStatus runtime))))

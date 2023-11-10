@@ -39,7 +39,7 @@
            (is (= expected-state actual-state))))])
 
 (deftest from-edn
-  (is (zero? (run-cucumber "resources/features/custom-docstring-types/from-edn.feature" from-edn-steps))))
+  (is (zero? (run-cucumber "test-resources/features/custom-docstring-types/from-edn.feature" from-edn-steps))))
 
 
 (def from-json-steps
@@ -69,4 +69,4 @@
                     :to-type   Boolean
                     :transform (fn [s] (Boolean/valueOf ^String s))})])
 (deftest from-json
-  (is (zero? (run-cucumber "resources/features/custom-docstring-types/from-json.feature" from-json-steps))))
+  (is (zero? (run-cucumber "test-resources/features/custom-docstring-types/from-json.feature" from-json-steps))))

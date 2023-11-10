@@ -45,5 +45,5 @@
        (reset! generative-cleanup-happened true)))])
 
 (deftest generative-feature
-  (is (zero? (run-cucumber "resources/features/generative.feature" generative-steps)))
+  (is (zero? (run-cucumber "test-resources/features/generative.feature" generative-steps)))
   (is @generative-cleanup-happened))

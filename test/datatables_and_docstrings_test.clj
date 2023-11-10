@@ -38,4 +38,4 @@
              (assert (= expected-state actual-state)))))])
 
 (deftest datatable-and-docstrings
-  (is (zero? (run-cucumber "resources/features/datatables-and-docstrings.feature" datatables-and-docstrings-steps))))
+  (is (zero? (run-cucumber "test-resources/features/datatables-and-docstrings.feature" datatables-and-docstrings-steps))))
