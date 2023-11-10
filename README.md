@@ -322,6 +322,8 @@ Happy Cucumbering!
 
 ## License
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)
+
     Copyright 2023 Daniel Miladinov
 
     Licensed under the Apache License, Version 2.0 (the "License");

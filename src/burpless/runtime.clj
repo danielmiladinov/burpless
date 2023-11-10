@@ -6,7 +6,7 @@
            (io.cucumber.core.options CommandlineOptionsParser CucumberProperties CucumberPropertiesParser)
            (io.cucumber.core.runtime BackendSupplier)
            (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
-           (io.cucumber.datatable DataTable DataTableType DataTableTypeRegistry TableCellTransformer TableEntryTransformer TableRowTransformer TableTransformer)
+           (io.cucumber.datatable DataTable DataTableType TableCellTransformer TableEntryTransformer TableRowTransformer TableTransformer)
            (io.cucumber.docstring DocString DocStringType DocStringType$Transformer)
            (java.lang.reflect Field Method ParameterizedType Type)
            (java.text MessageFormat)
@@ -362,10 +362,129 @@
                  (str/replace "\\" "\\\\")
                  (str/replace "\"" "\\\"")))))))))
 
+(def options
+  "A map describing the runtime options that burpless supports, their options, and their default values.
+  Derived from:
+  https://github.com/cucumber/cucumber-jvm/blob/main/cucumber-core/src/main/resources/io/cucumber/core/options/USAGE.txt"
+  {:threads        {:example "--threads COUNT"
+                    :doc     "Number of threads to run tests under. Defaults to 1."
+                    :default 1}
+
+   :glue           {:example "-g, --glue PATH"
+                    :short   :g
+                    :doc     "Package to load glue code (step definitions, hooks and plugins)
+                              from e.g: com.example.app. When not provided Cucumber will search the classpath."}
+
+   :plugin         {:example "-p, --plugin PLUGIN[:[PATH|[URI [OPTIONS]]]"
+                    :short   :p
+                    :doc     "Register a plugin.
+                              Built-in PLUGIN types:
+                              html, json, junit, message, pretty, progress, rerun,
+                              summary, teamcity, testng, timeline, usage, unused
+
+                              PLUGIN can also be a fully qualified class name,
+                              allowing registration of 3rd party plugins.
+                              If a http:// or https:// URI is used, the output will be sent as a PUT request.
+                              This can be overridden by providing additional options.
+
+                              OPTIONS supports cUrls -X and -H commands."
+                    :options [:html :json :junit :message :pretty :progress :rerun
+                              :summary :teamcity :testng :timeline :usage :unused]}
+
+   :tags           {:example "-t, --tags TAG_EXPRESSION"
+                    :short   :t
+                    :doc     "Only run scenarios tagged with tags matching TAG_EXPRESSION."}
+
+   :name           {:example "-n, --name REGEXP"
+                    :short   :n
+                    :doc     "Only run scenarios whose names match REGEXP."}
+
+   :dry-run        {:example  "-d, --[no-]dry-run"
+                    :short    :d
+                    :no-args? true
+                    :no-?     true
+                    :doc      "Skip execution of glue code."}
+
+   :monochrome     {:example  "-m, --[no-]monochrome"
+                    :short    :m
+                    :no-args? true
+                    :no-?     true
+                    :doc      "Don't colour terminal output."}
+
+   :snippets       {:example "--snippets [underscore|camelcase]"
+                    :doc     "Naming convention for generated snippets. Defaults to underscore."
+                    :options [:underscore :camelcase]
+                    :default :underscore}
+
+   :version        {:example  "-v, --version"
+                    :short    :v
+                    :no-args? true
+                    :doc      "Print version."}
+
+   :help           {:example  "-h, --help"
+                    :short    :h
+                    :no-args? true
+                    :doc      "You're looking at it."}
+
+   :i18n           {:example "--i18n LANG"
+                    :doc     "List keywords for in a particular language
+                              Run with '--i18n help' to see all languages"}
+
+   :wip            {:example  "-w, --wip"
+                    :short    :w
+                    :no-args? true
+                    :doc      "Fail if there are any passing scenarios."}
+
+   :order          {:example "--order"
+                    :doc     "Run the scenarios in a different order.
+                              The options are 'reverse' and 'random'.
+                              In case of 'random' order an optional
+                              seed parameter can be added 'random:<seed>'."}
+
+   :count          {:example "--count"
+                    :doc     "Number of scenarios to be executed.
+                              If not specified all scenarios are run."}
+
+   :object-factory {:example "--object-factory CLASSNAME"
+                    :doc     "Uses the class specified by CLASSNAME as object factory.
+                              Be aware that the class is loaded through a service loader and therefore also
+                              needs to be specified in: META-INF/services/io.cucumber.core.backend.ObjectFactory"}
+
+   :uuid-generator {:example "--uuid-generator CLASSNAME"
+                    :doc     "Uses the class specified by CLASSNAME as UUID generator.
+                              Be aware that the class is loaded through a service loader and therefore
+                              also needs to be specified in:
+                              META-INF/services/io.cucumber.core.eventbus.UuidGenerator"}})
+
+(defn to-cucumber-args
+  "Given a map, translate the recognized key-value pairs into a string array of cucumber args."
+  (^"[Ljava.lang.String;" [args-map]
+   (let [{:keys [by-short-value invertible]}
+         (reduce-kv (fn [m k {:keys [short no-?] :as v}]
+                      (cond-> m
+                              short (update :by-short-value assoc short v)
+                              no-? (update :invertible assoc (keyword (str "no-" (name k))) v)))
+                    {:by-short-value {}
+                     :invertible     {}}
+                    options)
+         matching-options (juxt options by-short-value invertible)]
+     (reduce-kv (fn [args k v]
+                  (let [{:keys [short no-args? no-?] :as match} (first (remove nil? (matching-options k)))]
+                    (cond-> args
+                            (some? match)
+                            (conj (->> k name (str (if (= short k) "-" "--"))))
+                            (not (or no-? no-args?))
+                            (conj (str v)))))
+                []
+                (into (sorted-map) args-map)))))
+
 (defn create-cucumber-runtime
   "Given some args, glues, and a state atom, return a Clojure-friendly implementation of the Cucumber runtime."
-  [args glues state-atom]
-  (let [properties-file-options (-> (CucumberPropertiesParser.)
+  [{:keys [features-path] :as args-map} glues state-atom]
+  (let [cucumber-args           (->> (to-cucumber-args args-map)
+                                     (concat [features-path])
+                                     (into-array String))
+        properties-file-options (-> (CucumberPropertiesParser.)
                                     (.parse (CucumberProperties/fromPropertiesFile))
                                     (.build))
         environment-options     (-> (CucumberPropertiesParser.)
@@ -376,7 +495,7 @@
                                     (.build environment-options))
         cli-options-parser      (CommandlineOptionsParser. System/out)
         runtime-options         (-> cli-options-parser
-                                    (.parse (into-array String args))
+                                    (.parse cucumber-args)
                                     (.addDefaultGlueIfAbsent)
                                     (.addDefaultFeaturePathIfAbsent)
                                     (.addDefaultSummaryPrinterIfNotDisabled)

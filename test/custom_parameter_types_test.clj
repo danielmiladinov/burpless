@@ -28,4 +28,4 @@
              (is (= expected-state actual-state)))))])
 
 (deftest custom-parameter-types
-  (is (zero? (run-cucumber "resources/features/custom-parameter-types.feature" glues))))
+  (is (zero? (run-cucumber "test-resources/features/custom-parameter-types.feature" glues))))

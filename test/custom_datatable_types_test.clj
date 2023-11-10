@@ -36,7 +36,7 @@
                                  (apply ->TicTacToeBoard (map keyword (.values table))))})])
 
 (deftest from-table
-  (is (zero? (run-cucumber "resources/features/custom-datatable-types/from-table.feature" from-table-glues))))
+  (is (zero? (run-cucumber "test-resources/features/custom-datatable-types/from-table.feature" from-table-glues))))
 
 
 ;; FROM ENTRY
@@ -62,7 +62,7 @@
                                  (->Book title author))})])
 
 (deftest from-entry
-  (is (zero? (run-cucumber "resources/features/custom-datatable-types/from-entry.feature" from-entry-glues))))
+  (is (zero? (run-cucumber "test-resources/features/custom-datatable-types/from-entry.feature" from-entry-glues))))
 
 
 ;; FROM CELL
@@ -94,7 +94,7 @@
                     :transform ->Color})])
 
 (deftest from-cell
-  (is (zero? (run-cucumber "resources/features/custom-datatable-types/from-cell.feature" from-cell-glues))))
+  (is (zero? (run-cucumber "test-resources/features/custom-datatable-types/from-cell.feature" from-cell-glues))))
 
 
 ;; FROM ROW
@@ -120,4 +120,4 @@
                     :transform (partial mapv parse-long)})])
 
 (deftest from-row
-  (is (zero? (run-cucumber "resources/features/custom-datatable-types/from-row.feature" from-row-glues))))
+  (is (zero? (run-cucumber "test-resources/features/custom-datatable-types/from-row.feature" from-row-glues))))
