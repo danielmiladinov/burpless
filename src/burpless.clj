@@ -27,8 +27,8 @@
   - :after-all - “after all features”
   - :before - “before each feature”
   - :after - “after each feature”
-  - :before-step “before each step”
-  - :after-step “after each step”"
+  - :before-step - “before each step”
+  - :after-step - “after each step”"
   [phase hook-fn]
   (let [line (:line (meta &form))]
     `{:glue-type :hook
