@@ -174,29 +174,29 @@
   "Given a map describing the hook definition to be built, and a state atom,
   return a HookDefinition implementation which after execution its effects should be observable in the state atom."
   [{:keys [phase order function file line]} state-atom]
-  (case phase
-    (:before-all :after-all) (reify StaticHookDefinition
-                               (^void execute [_]
-                                 (swap! state-atom function))
+  (let [{:keys [tag]} (meta function)]
+    (case phase
+      (:before-all :after-all) (reify StaticHookDefinition
+                                 (^void execute [_]
+                                   (swap! state-atom function))
 
-                               (^int getOrder [_] order))
-    (reify HookDefinition
-      (^void execute [_ ^TestCaseState state]
-        (swap! state-atom function state))
+                                 (^int getOrder [_] order))
+      (reify HookDefinition
+        (^void execute [_ ^TestCaseState state]
+          (swap! state-atom function state))
 
-      (^String getTagExpression [_]
-        ; TODO feature tag expressions
-        "")
+        (^String getTagExpression [_]
+          (or tag ""))
 
-      (^int getOrder [_]
-        order)
+        (^int getOrder [_]
+          order)
 
-      (^boolean isDefinedAt [_ ^StackTraceElement element]
-        (and (= line (.getLineNumber element))
-             (= file (.getFileName element))))
+        (^boolean isDefinedAt [_ ^StackTraceElement element]
+          (and (= line (.getLineNumber element))
+               (= file (.getFileName element))))
 
-      (^String getLocation [_]
-        (str file ":" line)))))
+        (^String getLocation [_]
+          (str file ":" line))))))
 
 (defn- type-of
   "Return a representation of a given argument type.

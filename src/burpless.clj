@@ -20,13 +20,21 @@
 
 
 (defmacro hook
-  "Create a hook map"
+  "Create a hook map. Takes a keyword representing which phase of the test lifecycle to run in,
+  and the function to run.
+  Supported phases:
+  - :before-all - “before all features”
+  - :after-all - “after all features”
+  - :before - “before each feature”
+  - :after - “after each feature”
+  - :before-step - “before each step”
+  - :after-step - “after each step”"
   [phase hook-fn]
   (let [line (:line (meta &form))]
     `{:glue-type :hook
       :phase     ~phase
       :order     0
-      :function  ~hook-fn
+      :function  ~(vary-meta hook-fn #(select-keys % [:tag]))
       :line      ~line
       :file      ~*file*}))
 
