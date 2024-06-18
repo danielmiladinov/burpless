@@ -4,7 +4,7 @@
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'net.clojars.danielmiladinov/burpless)
-(def version "0.1.0-SNAPSHOT")
+(def version "0.1.0")
 #_ ; alternatively, use MAJOR.MINOR.COMMITS:
 (def version (format "1.0.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
@@ -20,15 +20,15 @@
   opts)
 
 (defn- pom-template [version]
-  [[:description "FIXME: my new library."]
+  [[:description "An idiomatic Clojure wrapper around cucumber-jvm, for writing Cucumber feature tests."]
    [:url "https://github.com/danielmiladinov/burpless"]
    [:licenses
     [:license
-     [:name "Eclipse Public License"]
-     [:url "http://www.eclipse.org/legal/epl-v10.html"]]]
+     [:name "APACHE LICENSE, VERSION 2.0"]
+     [:url "https://www.apache.org/licenses/LICENSE-2.0.txt"]]]
    [:developers
     [:developer
-     [:name "Dmiladinov"]]]
+     [:name "Daniel Miladinov"]]]
    [:scm
     [:url "https://github.com/danielmiladinov/burpless"]
     [:connection "scm:git:https://github.com/danielmiladinov/burpless.git"]
@@ -38,14 +38,20 @@
 (defn- jar-opts [opts]
   (assoc opts
           :lib lib   :version version
-          :jar-file  (format "target/%s-%s.jar" lib version)
+          :jar-file  (format "target/%s-%s.jar" (name lib) version)
           :basis     (b/create-basis {})
           :class-dir class-dir
           :target    "target"
           :src-dirs  ["src"]
           :pom-data  (pom-template version)))
 
-(defn ci "Run the CI pipeline of tests (and build the JAR)." [opts]
+(defn clean [opts]
+  (b/delete {:path "target"})
+  opts)
+
+(defn ci
+  "Run the CI pipeline of tests (and build the JAR)."
+  [opts]
   (test opts)
   (b/delete {:path "target"})
   (let [opts (jar-opts opts)]
@@ -62,8 +68,13 @@
     (b/install opts))
   opts)
 
-(defn deploy "Deploy the JAR to Clojars." [opts]
-  (let [{:keys [jar-file] :as opts} (jar-opts opts)]
-    (dd/deploy {:installer :remote :artifact (b/resolve-path jar-file)
-                :pom-file (b/pom-path (select-keys opts [:lib :class-dir]))}))
+(defn deploy
+  "Deploy the JAR to Clojars."
+  [opts]
+  (let [{:keys [jar-file] :as opts} (jar-opts opts)
+        deploy-args{:installer :remote :artifact (b/resolve-path jar-file)
+                    :pom-file (b/pom-path (select-keys opts [:lib :class-dir]))}]
+       (println "deploy args:\n")
+       (println (str deploy-args))
+    (dd/deploy deploy-args))
   opts)

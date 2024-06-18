@@ -1,9 +1,11 @@
 # danielmiladinov/burpless
 
-An idiomatic Clojure wrapper for the latest version of [cucumber-jvm](https://github.com/cucumber/cucumber-jvm),
+An idiomatic Clojure wrapper around [cucumber-jvm](https://github.com/cucumber/cucumber-jvm), for writing Cucumber feature tests.
 inspired by [auxoncorp/clj-cucumber](https://github.com/auxoncorp/clj-cucumber).
 
-Library name suggested by [Roman Ostash](https://github.com/Romacoding).
+Library name inspired by [Roman Ostash](https://github.com/Romacoding).
+
+[![Clojars Project](https://img.shields.io/clojars/v/net.clojars.danielmiladinov/burpless.svg)](https://clojars.org/net.clojars.danielmiladinov/burpless)
 
 - [Usage](#usage)
   - [Add the Dependency](#add-the-dependency)
@@ -19,11 +21,15 @@ Library name suggested by [Roman Ostash](https://github.com/Romacoding).
 ## Usage
 
 ### Add the Dependency
+#### Deps:
 Add it to your `deps.edn`:
 ```clojure
-{:deps {danielmiladinov/burpless {:git/url "https://github.com/danielmiladinov/burpless"
-                                  :git/tag "0.0.1"
-                                  :git/sha "064ae51771f0696dc7d4adb13890d13437b592df"}}}
+{:deps {net.clojars.danielmiladinov/burpless {:mvn/version "0.1.0"}}}
+```
+#### Lein/Boot:
+Add it to your `project.clj`:
+```clojure
+[net.clojars.danielmiladinov/burpless "0.1.0"]
 ```
 
 ### Write a Feature File
