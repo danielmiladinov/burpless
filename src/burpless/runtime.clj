@@ -98,7 +98,7 @@
           capture-groups)))
 
 (defn- to-datatable-parameter-info
-  "Given a map of fn metadata known to contain a :datable key, based on its value,
+  "Given a map of fn metadata known to contain a :datatable key, based on its value,
   return the appropriate ParameterInfo instance."
   (^ParameterInfo [{:keys [datatable] :as fn-metadata}]
    (to-parameter-info
@@ -155,7 +155,13 @@
                                     (:docstring fn-metadata) (conj (to-docstring-parameter-info fn-metadata)))]
      (reify StepDefinition
        (^void execute [_ ^objects args]
-         (apply swap! state-atom function args))
+         (let [array-length (alength args)
+               last-idx     (dec array-length)
+               last-arg     (when (<= 0 last-idx)
+                              (aget args last-idx))]
+           (when (instance? DocString last-arg)
+             (aset args last-idx (.getContent ^DocString last-arg)))
+           (apply swap! state-atom function args)))
 
        (^List parameterInfos [_]
          parameter-infos)

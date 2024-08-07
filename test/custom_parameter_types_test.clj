@@ -1,9 +1,7 @@
 (ns custom-parameter-types-test
   (:require [burpless :refer [run-cucumber step parameter-type]]
             [clojure.test :refer [deftest is]])
-  (:import
-    (clojure.lang Keyword PersistentHashMap)
-    (io.cucumber.docstring DocString)))
+  (:import (clojure.lang Keyword PersistentHashMap)))
 
 (def glues
   [(parameter-type {:name      "bar-map"
@@ -23,8 +21,8 @@
 
    (step :Then "my state should look like this"
          ^:docstring
-         (fn [actual-state ^DocString docString]
-           (let [expected-state (read-string (.getContent docString))]
+         (fn [actual-state ^String docString]
+           (let [expected-state (read-string docString)]
              (is (= expected-state actual-state)))))])
 
 (deftest custom-parameter-types

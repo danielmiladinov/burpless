@@ -1,11 +1,9 @@
 (ns to-cucumber-args-test
   (:require [burpless :refer [run-cucumber step docstring-type]]
             [burpless.runtime :refer [to-cucumber-args]]
-            [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]])
-  (:import (clojure.lang IObj Keyword)
-           (io.cucumber.docstring DocString)))
+  (:import (clojure.lang IObj Keyword)))
 
 (def to-cucumber-args-steps
   [(step :Given "the args map begins as an empty map"

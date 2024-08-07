@@ -3,7 +3,6 @@
             [clojure.test :refer [deftest is]])
   (:import (clojure.lang Keyword)
            (io.cucumber.datatable DataTable)
-           (io.cucumber.docstring DocString)
            (java.util List)))
 
 
@@ -111,8 +110,8 @@
 
    (step :Then "my state should look like this:"
          ^:docstring
-         (fn [actual-state ^DocString docString]
-           (let [expected-state (read-string (.getContent docString))]
+         (fn [actual-state ^String docString]
+           (let [expected-state (read-string docString)]
              (is (= expected-state actual-state)))))
 
    (datatable-type {:to-type   List

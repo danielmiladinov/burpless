@@ -2,7 +2,7 @@
 
  :deps    {org.clojure/clojure       {:mvn/version "1.11.1"}
            org.clojure/test.check    {:mvn/version "1.1.1"}
-           io.cucumber/cucumber-java {:mvn/version "7.14.0"}}
+           io.cucumber/cucumber-java {:mvn/version "7.18.1"}}
 
  :aliases {:clj-paths      ["src"]
            :resource-paths ["resources"]

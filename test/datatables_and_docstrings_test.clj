@@ -4,7 +4,6 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is]])
   (:import (io.cucumber.datatable DataTable)
-           (io.cucumber.docstring DocString)
            (java.lang.reflect Type)))
 
 (def datatables-and-docstrings-steps
@@ -33,8 +32,8 @@
 
    (step :Then "my state should be equal to the following Clojure literal:"
          ^:docstring
-         (fn [actual-state ^DocString docString]
-           (let [expected-state (conversions/read-cucumber-string (.getContent docString))]
+         (fn [actual-state ^String docString]
+           (let [expected-state (conversions/read-cucumber-string docString)]
              (assert (= expected-state actual-state)))))])
 
 (deftest datatable-and-docstrings
