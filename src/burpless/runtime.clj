@@ -10,8 +10,7 @@
            (io.cucumber.docstring DocString DocStringType DocStringType$Transformer)
            (java.lang.reflect Field Method ParameterizedType Type)
            (java.text MessageFormat)
-           (java.util List Locale Map)
-           (java.util.function Supplier)))
+           (java.util List Locale Map)))
 
 (defn- access-private-field
   "Given an object instance and a symbol referring to one of its non-public fields,
@@ -219,15 +218,14 @@
   "Given a parameter-type descriptor map, return a ParameterType instance"
   (^ParameterType [{:keys [name regexps to-type transform
                            use-for-snippets? prefer-for-regexp? strong-type-hint?]}]
-   (ParameterType. ^String name
-                   ^List (map str regexps)
-                   ^Type to-type
-                   ^Transformer (reify Transformer
-                                  (^Object transform [_ ^String arg]
-                                    (transform arg)))
-                   ^boolean use-for-snippets?
-                   ^boolean prefer-for-regexp?
-                   ^boolean strong-type-hint?)))
+   (^[String List Type Transformer boolean boolean boolean]
+     ParameterType/new ^String name
+                       ^List (map str regexps)
+                       ^Type to-type
+                       ^Transformer transform
+                       ^boolean use-for-snippets?
+                       ^boolean prefer-for-regexp?
+                       ^boolean strong-type-hint?)))
 
 (defn- register-custom-parameter-type
   "Given a custom ParameterType, add it to both the provided glue and the parameter type registry.
@@ -242,45 +240,35 @@
 
 (defmethod ^:private to-datatable-type :table
   (^DataTableType [{:keys [to-type transform]}]
-   (DataTableType. ^Type to-type
-                   ^TableTransformer
-                   (reify TableTransformer
-                     (transform [_ ^DataTable table]
-                       (transform table))))))
+   (^[Type TableTransformer]
+     DataTableType/new ^Type to-type
+                       ^TableTransformer transform)))
 
 (defmethod ^:private to-datatable-type :row
   (^DataTableType [{:keys [to-type transform]}]
-   (DataTableType. ^Type to-type
-                   ^TableRowTransformer
-                   (reify TableRowTransformer
-                     (transform [_ ^List row]
-                       (transform row))))))
+   (^[Type TableRowTransformer]
+     DataTableType/new ^Type to-type
+                       ^TableRowTransformer transform)))
 
 (defmethod ^:private to-datatable-type :entry
   (^DataTableType [{:keys [to-type transform]}]
-   (DataTableType. ^Type to-type
-                   ^TableEntryTransformer
-                   (reify TableEntryTransformer
-                     (transform [_ ^Map entry]
-                       (transform entry))))))
+   (^[Type TableEntryTransformer]
+     DataTableType/new ^Type to-type
+                       ^TableEntryTransformer transform)))
 
 (defmethod ^:private to-datatable-type :cell
   (^DataTableType [{:keys [to-type transform]}]
-   (DataTableType. ^Type to-type
-                   ^TableCellTransformer
-                   (reify TableCellTransformer
-                     (transform [_ ^String cell]
-                       (transform cell))))))
+   (^[Type TableCellTransformer]
+     DataTableType/new ^Type to-type
+                       ^TableCellTransformer transform)))
 
 (defn- to-docstring-type
   "Given a docstring-type descriptor map, return a DocStringType instance"
   (^DocStringType [{:keys [content-type to-type transform]}]
-   (DocStringType. ^Type to-type
-                   ^String content-type
-                   ^DocStringType$Transformer
-                   (reify DocStringType$Transformer
-                     (transform [_ ^String content]
-                       (transform content))))))
+   (^[Type String DocStringType$Transformer]
+     DocStringType/new ^Type to-type
+                       ^String content-type
+                       ^DocStringType$Transformer transform)))
 
 (defn- create-clojure-cucumber-backend
   "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
@@ -310,13 +298,12 @@
            (register-custom-parameter-type
              glue
              parameter-type-registry
-             (ParameterType. "keyword"
-                             ^List (map str [#":(\S+)"])
-                             ^Type Keyword
-                             ^Transformer (reify Transformer
-                                            (^Object transform [_ ^String arg]
-                                              (keyword arg)))
-                             true true true))
+             (^[String List Type Transformer boolean boolean boolean]
+               ParameterType/new "keyword"
+                                 ^List (map str [#":(\S+)"])
+                                 ^Type Keyword
+                                 ^Transformer keyword
+                                 true true true))
 
            (doseq [parameter-type (map to-parameter-type parameter-types)]
              (register-custom-parameter-type glue parameter-type-registry parameter-type))
@@ -514,6 +501,6 @@
               runtime (-> (io.cucumber.core.runtime.Runtime/builder) ;; disambiguated from java.lang.Runtime
                           (.withRuntimeOptions runtime-options)
                           (.withBackendSupplier (reify BackendSupplier (get [_] (vector backend))))
-                          (.withClassLoader (reify Supplier (get [_] (.getContextClassLoader (Thread/currentThread)))))
+                          (.withClassLoader (fn [] (.getContextClassLoader (Thread/currentThread))))
                           (.build))]
           runtime))))
