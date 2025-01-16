@@ -117,10 +117,10 @@
                nil))
 
            :else
-           (throw (ex-info (str "Unexpected step fn metadata - :datable value should either be:\n"
-                                "- boolean true,\n"
-                                "- a Type instance, or\n"
-                                "- a vector containing a Type instance")
+           (throw (ex-info (str/join "\n" ["Unexpected step fn metadata - :datable value should either be:"
+                                           "- boolean true,"
+                                           "- a Type instance, or"
+                                           "- a vector containing a Type instance"])
                            fn-metadata))))))
 
 (defn- to-docstring-parameter-info
@@ -133,9 +133,9 @@
            (instance? Type docstring) docstring
 
            :else
-           (throw (ex-info (str "Unexpected step fn metadata - :datable value should either be:\n"
-                                "- boolean true, or\n"
-                                "- a Type instance\n")
+           (throw (ex-info (str/join "\n" ["Unexpected step fn metadata - :datable value should either be:"
+                                           "- boolean true, or"
+                                           "- a Type instance"])
                            fn-metadata))))))
 
 (defn- to-step-definition
