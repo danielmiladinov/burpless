@@ -473,10 +473,8 @@
 
 (defn create-cucumber-runtime
   "Given some args, glues, and a state atom, return a Clojure-friendly implementation of the Cucumber runtime."
-  [{:keys [features-path] :as args-map} glues state-atom]
-  (let [cucumber-args           (->> (to-cucumber-args args-map)
-                                     (concat [features-path])
-                                     (into-array String))
+  [{:keys [feature-path] :as args-map} glues state-atom]
+  (let [cucumber-args           (into-array String (to-cucumber-args args-map))
         properties-file-options (-> (CucumberPropertiesParser.)
                                     (.parse (CucumberProperties/fromPropertiesFile))
                                     (.build))
