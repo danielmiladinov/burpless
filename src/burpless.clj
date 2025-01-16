@@ -100,7 +100,7 @@
       :file         ~*file*}))
 
 (defn run-cucumber
-  "Run the cucumber features at `features-path` using the given `glues`.
+  "Run the cucumber feature at `feature-path` using the given `glues`.
 
   `glues` should be a sequence of glue definition maps - glues can be one of the following:
   - steps
@@ -120,8 +120,8 @@
   Zero indicates test success; non-zero values imply something went wrong."
   ([x y]
    (run-cucumber x y {:plugin "pretty"}))
-  ([features-path glues args]
+  ([feature-path glues args]
    (let [state-atom (atom nil)
-         runtime    (create-cucumber-runtime (assoc args :features-path features-path) glues state-atom)]
+         runtime    (create-cucumber-runtime (assoc args :feature-path feature-path) glues state-atom)]
      (.run runtime)
      (.exitStatus runtime))))
