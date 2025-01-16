@@ -35,8 +35,8 @@
         (.invoke instance-or-class method-args))))
 
 (defn- to-parameter-info
-  "Return a ParameterInfo for a given Type, or java.lang.Class, if none was given."
-  (^ParameterInfo [] (to-parameter-info Class))
+  "Return a ParameterInfo for a given Type, or java.lang.Object, if none was given."
+  (^ParameterInfo [] (to-parameter-info Object))
 
   (^ParameterInfo [^Type type]
    (reify ParameterInfo
