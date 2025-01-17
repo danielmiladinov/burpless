@@ -20,7 +20,6 @@
            (assoc state kw bar-map)))
 
    (step :Then "my state should look like this"
-         ^:docstring
          (fn [actual-state ^String docString]
            (let [expected-state (read-string docString)]
              (is (= expected-state actual-state)))))])

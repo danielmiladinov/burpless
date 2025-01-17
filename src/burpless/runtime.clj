@@ -3,12 +3,17 @@
             [clojure.string :as str])
   (:import (clojure.lang Atom IObj Keyword Symbol)
            (io.cucumber.core.backend Backend DataTableTypeDefinition DocStringTypeDefinition Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
+           (io.cucumber.core.gherkin DataTableArgument DocStringArgument Feature Pickle)
+           (io.cucumber.core.gherkin.messages GherkinMessagesFeatureParser)
            (io.cucumber.core.options CommandlineOptionsParser CucumberProperties CucumberPropertiesParser)
-           (io.cucumber.core.runtime BackendSupplier)
+           (io.cucumber.core.runtime BackendSupplier FeatureSupplier)
            (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
            (io.cucumber.datatable DataTable DataTableType TableCellTransformer TableEntryTransformer TableRowTransformer TableTransformer)
            (io.cucumber.docstring DocString DocStringType DocStringType$Transformer)
+           (java.io File)
            (java.lang.reflect Field Method ParameterizedType Type)
+           (java.net URI)
+           (java.nio.file Files OpenOption Path)
            (java.text MessageFormat)
            (java.util List Locale Map)))
 
@@ -101,7 +106,9 @@
   return the appropriate ParameterInfo instance."
   (^ParameterInfo [{:keys [datatable] :as fn-metadata}]
    (to-parameter-info
-     (cond (true? datatable) DataTable
+     (cond (nil? datatable) DataTable
+
+           (true? datatable) DataTable
 
            (instance? Type datatable) datatable
 
@@ -128,7 +135,9 @@
   return the appropriate ParameterInfo instance."
   (^ParameterInfo [{:keys [docstring] :as fn-metadata}]
    (to-parameter-info
-     (cond (true? docstring) DocString
+     (cond (nil? docstring) DocString
+
+           (true? docstring) DocString
 
            (instance? Type docstring) docstring
 
@@ -138,20 +147,38 @@
                                            "- a Type instance"])
                            fn-metadata))))))
 
+(defn- find-step-argument
+  "Given a step expression, the list of parameter infos for that expression, and a sequence pickle step candidates,
+  return the argument of the pickle step whose text corresponds to the expression.
+  This is necessary for determining whether a step needs an extra argument for either a datatable or docstring."
+  [expression step-parameter-infos pickle-steps]
+  (let [types (into-array Type (map ParameterInfo/.getType step-parameter-infos))]
+    (some->> pickle-steps
+             not-empty
+             (filter (comp some? (fn [text] (.match expression text types)) :text))
+             first
+             :argument)))
+
 (defn- to-step-definition
-  "Given a ParameterTypeRegistry, a map describing the step definition to be built, and a state atom,
-  return a StepDefinition implementation which after execution its effects should be observable in the state atom."
+  "Given a ParameterTypeRegistry, a sequence of pickle steps, a map describing the step definition to be built,
+  and a state atom, return a StepDefinition implementation which after execution
+  its effects should be observable in the state atom."
   (^StepDefinition [^ParameterTypeRegistry registry
+                    pickle-steps
                     {:keys [pattern function file line]}
                     ^Atom state-atom]
-   (let [expression-factory (ExpressionFactory. registry)
-         pattern-str        (str pattern)
-         fn-metadata        (meta function)
-         expression         (.createExpression expression-factory pattern-str)
-         parameter-infos    (cond-> (to-parameter-infos {:expression expression
-                                                         :registry   registry})
-                                    (:datatable fn-metadata) (conj (to-datatable-parameter-info fn-metadata))
-                                    (:docstring fn-metadata) (conj (to-docstring-parameter-info fn-metadata)))]
+   (let [expression-factory   (ExpressionFactory. registry)
+         pattern-str          (str pattern)
+         fn-metadata          (meta function)
+         expression           (.createExpression expression-factory pattern-str)
+         step-parameter-infos (to-parameter-infos {:expression expression
+                                                   :registry   registry})
+         pickle-step-argument (find-step-argument expression step-parameter-infos pickle-steps)
+         datatable?           (or (:datatable fn-metadata) (instance? DataTableArgument pickle-step-argument))
+         docstring?           (or (:docstring fn-metadata) (instance? DocStringArgument pickle-step-argument))
+         parameter-infos      (cond-> step-parameter-infos
+                                      datatable? (conj (to-datatable-parameter-info fn-metadata))
+                                      docstring? (conj (to-docstring-parameter-info fn-metadata)))]
      (reify StepDefinition
        (^void execute [_ ^objects args]
          (let [array-length (alength args)
@@ -159,7 +186,9 @@
                last-arg     (when (<= 0 last-idx)
                               (aget args last-idx))]
            (when (instance? DocString last-arg)
-             (aset args last-idx (.getContent ^DocString last-arg)))
+             (aset args last-idx (cond-> (.getContent ^DocString last-arg)
+                                         (= "edn" (.getContentType ^DocString last-arg))
+                                         edn/read-string)))
            (apply swap! state-atom function args)))
 
        (^List parameterInfos [_]
@@ -271,9 +300,18 @@
                        ^DocStringType$Transformer transform)))
 
 (defn- create-clojure-cucumber-backend
-  "Given a collection of glues, return a Clojure-friendly Cucumber Backend implementation."
-  (^Backend [glues state-atom]
-   (let [{steps           :step
+  "Given a parsed gherkin feature, a collection of glues, and a state atom,
+  return a Clojure-friendly Cucumber Backend implementation."
+  (^Backend [^Feature feature glues state-atom]
+   (let [pickle-steps (->> feature
+                           .getPickles
+                           (mapcat Pickle/.getSteps)
+                           (mapv (fn [step]
+                                   {:keyword  (.getKeyword step)
+                                    :type     (.getType step)
+                                    :text     (.getText step)
+                                    :argument (.getArgument step)})))
+         {step-fns        :step
           hooks           :hook
           parameter-types :parameter-type
           datatable-types :datatable-type
@@ -318,8 +356,8 @@
                :before-step (.addBeforeStepHook glue hook-def)
                :after-step (.addAfterStepHook glue hook-def)))
 
-           (doseq [step steps]
-             (.addStepDefinition glue (to-step-definition parameter-type-registry step state-atom)))))
+           (doseq [step-fn step-fns]
+             (.addStepDefinition glue (to-step-definition parameter-type-registry pickle-steps step-fn state-atom)))))
 
        (^void buildWorld [_])
        (^void disposeWorld [_])
@@ -340,10 +378,7 @@
                     "        (throw (io.cucumber.java.PendingException.))))")))
 
            (^String tableHint [_]
-             (str/join "\n"
-                       ["        ;; Be sure to also adorn your step function with the ^:datatable metadata"
-                        "        ;; in order for the runtime to properly identify it and pass the datatable argument"
-                        ""]))
+              "")
 
            (^String arguments [_ ^Map arguments]
              (->> arguments
@@ -495,10 +530,17 @@
         exit-status             (-> (.exitStatus cli-options-parser)
                                     (.orElse nil))]
     (or exit-status
-        (let [backend (create-clojure-cucumber-backend glues state-atom)
-              runtime (-> (io.cucumber.core.runtime.Runtime/builder) ;; disambiguated from java.lang.Runtime
-                          (.withRuntimeOptions runtime-options)
-                          (.withBackendSupplier (reify BackendSupplier (get [_] (vector backend))))
-                          (.withClassLoader (fn [] (.getContextClassLoader (Thread/currentThread))))
-                          (.build))]
+        (let [class-loader   (.getContextClassLoader (Thread/currentThread))
+              feature-uri    (URI. (str/join File/separator ["file:" File/separator (System/getProperty "user.dir") feature-path]))
+              feature-stream (Files/newInputStream (Path/of feature-uri) (make-array OpenOption 0))
+              feature        (-> (GherkinMessagesFeatureParser.)
+                                 (.parse feature-uri feature-stream random-uuid)
+                                 .get)
+              backend        (create-clojure-cucumber-backend feature glues state-atom)
+              runtime        (-> (io.cucumber.core.runtime.Runtime/builder) ;; disambiguated from java.lang.Runtime
+                                 (.withRuntimeOptions runtime-options)
+                                 (.withBackendSupplier (reify BackendSupplier (get [_] (vector backend))))
+                                 (.withFeatureSupplier (reify FeatureSupplier (get [_] (vector feature))))
+                                 (.withClassLoader (fn [] class-loader))
+                                 (.build))]
           runtime))))
