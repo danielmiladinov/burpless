@@ -15,23 +15,19 @@
            (assoc state :target-keyword (keyword (str/replace keyword-name #":" "")))))
 
    (step :When "I have a table of the following high and low temperatures:"
-         ^:datatable
          (fn [state ^DataTable dataTable]
            (assoc state :highs-and-lows (.asLists dataTable ^Type Long))))
 
    (step :Given "I have a key-value table:"
-         ^:datatable
          (fn [_state ^DataTable dataTable]
            (conversions/key-value-table->map dataTable)))
 
 
    (step :Given "I have a table of data with key names in the first row:"
-         ^:datatable
          (fn [_state ^DataTable dataTable]
            (conversions/data-table->maps dataTable)))
 
    (step :Then "my state should be equal to the following Clojure literal:"
-         ^:docstring
          (fn [actual-state ^String docString]
            (let [expected-state (conversions/read-cucumber-string docString)]
              (assert (= expected-state actual-state)))))])

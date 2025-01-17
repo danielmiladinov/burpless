@@ -18,23 +18,18 @@
            (assoc state :target-keyword (keyword (str/replace keyword-name #":" "")))))
 
    (step :When "I have a table of the following high and low temperatures:"
-         ^:datatable
          (fn [state ^DataTable dataTable]
            (assoc state :highs-and-lows (.asLists dataTable ^Type Long))))
 
    (step :Given "I have a key-value table:"
-         ^:datatable
          (fn [_state ^DataTable dataTable]
            (conversions/key-value-table->map dataTable)))
 
-
    (step :Given "I have a table of data with key names in the first row:"
-         ^:datatable
          (fn [_state ^DataTable dataTable]
            (conversions/data-table->maps dataTable)))
 
    (step :Then "my state should be equal to the following Clojure edn literal:"
-         ^{:docstring IObj}
          (fn [actual-state ^IObj expected-state]
            (is (= expected-state actual-state))))])
 
@@ -47,7 +42,6 @@
          (constantly {}))
 
    (step :Given "I want to store the following in my state's {keyword} key"
-         ^{:docstring IObj}
          (fn [state ^Keyword kw ^IObj data]
            (assoc state kw data)))
 

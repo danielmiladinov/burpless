@@ -14,7 +14,6 @@
            (assoc state arg-name arg-value)))
 
    (step :When "the args are set to the following edn:"
-         ^{:docstring IObj}
          (fn [_state ^IObj args]
            args))
 

@@ -8,7 +8,6 @@
            (assoc state :expected-doc-string-value expected-doc-string-value)))
 
    (step :When "I extract the doc-string value from this step:"
-         ^:docstring
          (fn [state ^String actual-doc-string-value]
            (assoc state :actual-doc-string-value actual-doc-string-value)))
 
