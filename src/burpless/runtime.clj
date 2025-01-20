@@ -151,22 +151,23 @@
              :argument)))
 
 (defn- to-step-definition
-  "Given a ParameterTypeRegistry, a sequence of pickle steps, a map describing the step definition to be built,
-  and a state atom, return a StepDefinition implementation which after execution
-  its effects should be observable in the state atom."
+  "Given a ParameterTypeRegistry, an ExpressionFactory, a sequence of pickle steps,
+  a sequence of DocStringTypeDefinitions, a map describing the step definition to be built, and a state atom,
+  return a StepDefinition implementation, which after execution its effects should be observable in the state atom."
   (^StepDefinition [^ParameterTypeRegistry registry
+                    ^ExpressionFactory expression-factory
                     pickle-steps
+                    docstring-typedefs
                     {:keys [pattern function file line]}
                     ^Atom state-atom]
-   (let [expression-factory   (ExpressionFactory. registry)
-         pattern-str          (str pattern)
-         fn-metadata          (meta function)
+   (let [pattern-str          (str pattern)
          expression           (.createExpression expression-factory pattern-str)
-         step-parameter-infos (to-parameter-infos {:expression expression :registry registry})
-         pickle-step-argument (find-step-argument expression step-parameter-infos pickle-steps)
+         fn-metadata          (meta function)
+         expr-parameter-infos (to-parameter-infos {:expression expression :registry registry})
+         pickle-step-argument (find-step-argument expression expr-parameter-infos pickle-steps)
          datatable?           (or (:datatable fn-metadata) (instance? DataTableArgument pickle-step-argument))
          docstring?           (or (:docstring fn-metadata) (instance? DocStringArgument pickle-step-argument))
-         parameter-infos      (cond-> step-parameter-infos
+         all-parameter-infos  (cond-> expr-parameter-infos
                                       datatable? (conj (to-datatable-parameter-info fn-metadata))
                                       docstring? (conj (to-docstring-parameter-info fn-metadata)))]
      (reify StepDefinition
@@ -175,13 +176,26 @@
                last-idx     (dec array-length)
                last-arg     (when (<= 0 last-idx)
                               (aget args last-idx))]
+           ;; Apply DocStringType transformations here ourselves, since it seems that cucumber-jvm isn't applying them
+           ;; for us, as it seems to be doing with DatatableType transformations… how curious!
            (when (instance? DocString last-arg)
-             (aset args last-idx (cond-> (.getContent ^DocString last-arg)
-                                         (= "edn" (.getContentType ^DocString last-arg))
-                                         edn/read-string)))
+             (let [content-type (.getContentType ^DocString last-arg)
+                   transform    (fn [content]
+                                  (let [docstring-type (some->> docstring-typedefs
+                                                                (map DocStringTypeDefinition/.docStringType)
+                                                                (filter (comp (hash-set content-type)
+                                                                              (fn [^DocStringType docstring-type]
+                                                                                (invoke-private-method
+                                                                                  docstring-type
+                                                                                  'getContentType))))
+                                                                first)]
+                                    (if (some? docstring-type)
+                                      (invoke-private-method docstring-type 'transform content)
+                                      content)))]
+               (aset args last-idx (-> ^DocString last-arg .getContent transform))))
            (apply swap! state-atom function args)))
        (^List parameterInfos [_]
-         parameter-infos)
+         all-parameter-infos)
        (^String getPattern [_]
          pattern-str)
        (^boolean isDefinedAt [_ ^StackTraceElement element]
@@ -216,11 +230,11 @@
 
 (defn- type-of
   "Return a representation of a given argument type.
-  DataTables and Keywords get special treatment, in that we return the full name.
+  DataTables, IObjs, and Keywords get special treatment, in that we return the full name.
   For all other types, return the simple name."
   (^String [arg-type]
    (if (instance? Class arg-type)
-     (if (#{DataTable Keyword} arg-type)
+     (if (#{DataTable IObj Keyword} arg-type)
        (.getName arg-type)
        (.getSimpleName arg-type))
      (str arg-type))))
@@ -285,91 +299,118 @@
   "Given a parsed gherkin feature, a collection of glues, and a state atom,
   return a Clojure-friendly Cucumber Backend implementation."
   (^Backend [^Feature feature glues state-atom]
-   (let [pickle-steps (->> feature
-                           .getPickles
-                           (mapcat Pickle/.getSteps)
-                           (mapv (fn [step]
-                                   {:keyword  (.getKeyword step)
-                                    :type     (.getType step)
-                                    :text     (.getText step)
-                                    :argument (.getArgument step)})))
+   (let [pickle-steps       (->> feature
+                                 .getPickles
+                                 (mapcat Pickle/.getSteps)
+                                 (mapv (fn [step]
+                                         {:keyword  (.getKeyword step)
+                                          :type     (.getType step)
+                                          :text     (.getText step)
+                                          :argument (.getArgument step)})))
          {step-fns        :step
           hooks           :hook
           parameter-types :parameter-type
           datatable-types :datatable-type
-          docstring-types :docstring-type} (group-by :glue-type glues)]
+          docstring-types :docstring-type} (group-by :glue-type glues)
+         locale             (Locale/getDefault)
+         registry           (ParameterTypeRegistry. locale)
+         factory            (ExpressionFactory. registry)
+         docstring-typedefs (atom nil)]
      (reify Backend
        (^void loadGlue [_ ^Glue glue ^List _gluePaths]
-         (let [locale                  (Locale/getDefault)
-               parameter-type-registry (ParameterTypeRegistry. locale)]
-
-           (doseq [datatable-type (map to-datatable-type datatable-types)]
-             (.addDataTableType glue (reify DataTableTypeDefinition (^DataTableType dataTableType [_] datatable-type))))
-
-           (.addDocStringType glue (reify DocStringTypeDefinition
-                                     (^DocStringType docStringType [_]
-                                       (to-docstring-type {:content-type "edn"
-                                                           :to-type      IObj
-                                                           :transform    edn/read-string}))))
-
-           (doseq [docstring-type (map to-docstring-type docstring-types)]
-             (.addDocStringType glue (reify DocStringTypeDefinition (^DocStringType docStringType [_] docstring-type))))
-
-           (register-custom-parameter-type
-             glue
-             parameter-type-registry
-             (^[String List Type Transformer boolean boolean boolean]
-               ParameterType/new "keyword"
-                                 ^List (map str [#":(\S+)"])
-                                 ^Type Keyword
-                                 ^Transformer keyword
-                                 true true true))
-
-           (doseq [parameter-type (map to-parameter-type parameter-types)]
-             (register-custom-parameter-type glue parameter-type-registry parameter-type))
-
-           (doseq [{:keys [phase] :as hook} hooks
-                   :let [hook-def (to-hook-definition hook state-atom)]]
-             (case phase
-               :before-all (.addBeforeAllHook glue hook-def)
-               :after-all (.addAfterAllHook glue hook-def)
-               :before (.addBeforeHook glue hook-def)
-               :after (.addAfterHook glue hook-def)
-               :before-step (.addBeforeStepHook glue hook-def)
-               :after-step (.addAfterStepHook glue hook-def)))
-
+         (doseq [datatable-type (map to-datatable-type datatable-types)]
+           (.addDataTableType glue (reify DataTableTypeDefinition (^DataTableType dataTableType [_] datatable-type))))
+         (.addDocStringType glue (reify DocStringTypeDefinition
+                                   (^DocStringType docStringType [_]
+                                     (to-docstring-type {:content-type "edn"
+                                                         :to-type      IObj
+                                                         :transform    edn/read-string}))))
+         (doseq [docstring-type (map to-docstring-type docstring-types)]
+           (.addDocStringType glue (reify DocStringTypeDefinition (^DocStringType docStringType [_] docstring-type))))
+         (register-custom-parameter-type
+           glue
+           registry
+           (^[String List Type Transformer boolean boolean boolean]
+             ParameterType/new "keyword"
+                               ^List (map str [#":(\S+)"])
+                               ^Type Keyword
+                               ^Transformer keyword
+                               true true true))
+         (doseq [parameter-type (map to-parameter-type parameter-types)]
+           (register-custom-parameter-type glue registry parameter-type))
+         (doseq [{:keys [phase] :as hook} hooks
+                 :let [hook-def (to-hook-definition hook state-atom)]]
+           (case phase
+             :before-all (.addBeforeAllHook glue hook-def)
+             :after-all (.addAfterAllHook glue hook-def)
+             :before (.addBeforeHook glue hook-def)
+             :after (.addAfterHook glue hook-def)
+             :before-step (.addBeforeStepHook glue hook-def)
+             :after-step (.addAfterStepHook glue hook-def)))
+         (let [typedefs (reset! docstring-typedefs (invoke-private-method glue 'getDocStringTypeDefinitions))]
            (doseq [step-fn step-fns]
-             (.addStepDefinition glue (to-step-definition parameter-type-registry pickle-steps step-fn state-atom)))))
-
+             (.addStepDefinition glue (to-step-definition registry factory pickle-steps typedefs step-fn state-atom)))))
        (^void buildWorld [_])
        (^void disposeWorld [_])
        (^Snippet getSnippet [_]
-         (reify Snippet
-           (^MessageFormat template [_]
-             ;; {0} : Step Keyword</li>
-             ;; {1} : Value of {@link #escapePattern(String)}</li>
-             ;; {2} : Function name</li>
-             ;; {3} : Value of {@link #arguments(Map)}</li>
-             ;; {4} : Regexp hint comment</li>
-             ;; {5} : value of {@link #tableHint()} if the step has a table</li>
-             (MessageFormat.
-               (str "(step :{0} \"{1}\"\n"
-                    "      (fn {2} [state {3}]\n"
-                    "        ;; {4}\n{5}"
-                    "        (throw (io.cucumber.java.PendingException.))))")))
-
-           (^String tableHint [_]
-              "")
-
-           (^String arguments [_ ^Map arguments]
-             (->> arguments
-                  (map (fn [[arg-name arg-type]] (format "^%s %s" (type-of arg-type) arg-name)))
-                  (str/join " ")))
-
-           (^String escapePattern [_ ^String pattern]
-             (-> pattern
-                 (str/replace "\\" "\\\\")
-                 (str/replace "\"" "\\\"")))))))))
+         (let [pattern-last-escaped (atom nil)]
+           (reify Snippet
+             (^MessageFormat template [_]
+               ;; {0} : Step Keyword</li>
+               ;; {1} : Value of {@link #escapePattern(String)}</li>
+               ;; {2} : Function name</li>
+               ;; {3} : Value of {@link #arguments(Map)}</li>
+               ;; {4} : Regexp hint comment</li>
+               ;; {5} : value of {@link #tableHint()} if the step has a table</li>
+               (MessageFormat.
+                 (str/join "\n" ["(step :{0} \"{1}\""
+                                 "      (fn [state{3}]"
+                                 "        ;; {4}"
+                                 "        (throw (io.cucumber.java.PendingException.))))"])))
+             (^String tableHint [_] "")
+             (^String arguments [_ ^Map arguments]
+               ;; Relying on the fact that SnippetGenerator.createSnippet() calls escapePattern() with the value of the
+               ;; pattern for which the snippet is being generated, before calling arguments()... :-/
+               ;; If we remember what the pattern was that was just escaped, we can do some work in order to provide
+               ;; a better type hint than just “String” for DocString types for which we know there is a transformation.
+               ;; We do this by looking up our pickle steps for the one whose text matches the pattern
+               ;; and checking its argument to see if it's a DocStringArgument.
+               ;; DocStringTypes' transformations are organized by their (optional) media type
+               ;; We've recorded a list of the defined DocStringType transformations - those provided to us by the step
+               ;; fn author(s), and any others that might be hidden behind / built in to cucumber-jvm's glue
+               ;; implementation
+               (let [pattern         @pattern-last-escaped
+                     expression      (.createExpression factory pattern)
+                     parameter-infos (to-parameter-infos {:expression expression :registry registry})
+                     argument        (find-step-argument expression parameter-infos pickle-steps)
+                     mapped-types    (when (instance? DocStringArgument argument)
+                                       (some->> @docstring-typedefs
+                                                (map DocStringTypeDefinition/.docStringType)
+                                                (reduce (fn [mappings docstring-type]
+                                                          (assoc mappings
+                                                            (invoke-private-method docstring-type 'getContentType)
+                                                            (invoke-private-method docstring-type 'getType)))
+                                                        {})))
+                     args-str        (->> arguments
+                                          (map (fn [[arg-name arg-type]]
+                                                 (let [args (if (and (some? argument) (= "docString" arg-name))
+                                                              (let [media-type (.getMediaType ^DocStringArgument argument)
+                                                                    arg-type'  (get mapped-types media-type arg-type)
+                                                                    arg-name'  (if (not= "String" arg-type')
+                                                                                 "fromDocString"
+                                                                                 "docString")]
+                                                                [arg-type' arg-name'])
+                                                              [arg-type arg-name])]
+                                                   (apply format "^%s %s" (update args 0 type-of)))))
+                                          (str/join " "))]
+                 (cond->> args-str
+                          (not (str/blank? args-str))
+                          (str " "))))
+             (^String escapePattern [_ ^String pattern]
+               (reset! pattern-last-escaped pattern)
+               (-> pattern
+                   (str/replace "\\" "\\\\")
+                   (str/replace "\"" "\\\""))))))))))
 
 (def options
   "A map describing the runtime options that burpless supports, their options, and their default values.
