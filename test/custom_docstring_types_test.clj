@@ -62,5 +62,6 @@
                     :regexps   [#"(?i)true|false"]
                     :to-type   Boolean
                     :transform (fn [s] (Boolean/valueOf ^String s))})])
+
 (deftest from-json
   (is (zero? (run-cucumber "test-resources/features/custom-docstring-types/from-json.feature" from-json-steps))))

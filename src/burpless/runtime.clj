@@ -52,7 +52,6 @@
          (^Type resolve [_] type))))))
 
 (defmulti ^:private to-parameter-infos
-
           "There's more than one way to produce a list of ParameterInfo objects from a StepExpression,
           and we decide which method to use by dispatching on the type of the incoming StepExpression.
 
@@ -67,7 +66,6 @@
           a RegularExpression instance might have been further augmented with additional parameter types
           after initialization via calls to its defineParameterType method.
           See also: https://github.com/cucumber/cucumber-expressions/blob/main/java/src/main/java/io/cucumber/cucumberexpressions/ParameterTypeRegistry.java"
-
           (comp type :expression))
 
 ;; Given a CucumberExpression, get at its source property, which is the actual string which we expect to contain zero
@@ -107,11 +105,8 @@
   (^ParameterInfo [{:keys [datatable] :as fn-metadata}]
    (to-parameter-info
      (cond (nil? datatable) DataTable
-
            (true? datatable) DataTable
-
            (instance? Type datatable) datatable
-
            (and (vector? datatable)
                 (instance? Type (first datatable)))
            (reify ParameterizedType
@@ -122,7 +117,6 @@
                List)
              (^Type getOwnerType [_]
                nil))
-
            :else
            (throw (ex-info (str/join "\n" ["Unexpected step fn metadata - :datable value should either be:"
                                            "- boolean true,"
@@ -136,11 +130,8 @@
   (^ParameterInfo [{:keys [docstring] :as fn-metadata}]
    (to-parameter-info
      (cond (nil? docstring) DocString
-
            (true? docstring) DocString
-
            (instance? Type docstring) docstring
-
            :else
            (throw (ex-info (str/join "\n" ["Unexpected step fn metadata - :datable value should either be:"
                                            "- boolean true, or"
@@ -171,8 +162,7 @@
          pattern-str          (str pattern)
          fn-metadata          (meta function)
          expression           (.createExpression expression-factory pattern-str)
-         step-parameter-infos (to-parameter-infos {:expression expression
-                                                   :registry   registry})
+         step-parameter-infos (to-parameter-infos {:expression expression :registry registry})
          pickle-step-argument (find-step-argument expression step-parameter-infos pickle-steps)
          datatable?           (or (:datatable fn-metadata) (instance? DataTableArgument pickle-step-argument))
          docstring?           (or (:docstring fn-metadata) (instance? DocStringArgument pickle-step-argument))
@@ -190,17 +180,13 @@
                                          (= "edn" (.getContentType ^DocString last-arg))
                                          edn/read-string)))
            (apply swap! state-atom function args)))
-
        (^List parameterInfos [_]
          parameter-infos)
-
        (^String getPattern [_]
          pattern-str)
-
        (^boolean isDefinedAt [_ ^StackTraceElement element]
          (and (= line (.getLineNumber element))
               (= file (.getFileName element))))
-
        (^String getLocation [_]
          (str file ":" line))))))
 
@@ -210,25 +196,21 @@
   [{:keys [phase order function file line]} state-atom]
   (let [{:keys [tag]} (meta function)]
     (case phase
-      (:before-all :after-all) (reify StaticHookDefinition
-                                 (^void execute [_]
-                                   (swap! state-atom function))
-
-                                 (^int getOrder [_] order))
+      (:before-all :after-all)
+      (reify StaticHookDefinition
+        (^void execute [_]
+          (swap! state-atom function))
+        (^int getOrder [_] order))
       (reify HookDefinition
         (^void execute [_ ^TestCaseState state]
           (swap! state-atom function state))
-
         (^String getTagExpression [_]
           (or tag ""))
-
         (^int getOrder [_]
           order)
-
         (^boolean isDefinedAt [_ ^StackTraceElement element]
           (and (= line (.getLineNumber element))
                (= file (.getFileName element))))
-
         (^String getLocation [_]
           (str file ":" line))))))
 
@@ -361,7 +343,6 @@
 
        (^void buildWorld [_])
        (^void disposeWorld [_])
-
        (^Snippet getSnippet [_]
          (reify Snippet
            (^MessageFormat template [_]
@@ -397,12 +378,10 @@
   {:threads        {:example "--threads COUNT"
                     :doc     "Number of threads to run tests under. Defaults to 1."
                     :default 1}
-
    :glue           {:example "-g, --glue PATH"
                     :short   :g
                     :doc     "Package to load glue code (step definitions, hooks and plugins)
                               from e.g: com.example.app. When not provided Cucumber will search the classpath."}
-
    :plugin         {:example "-p, --plugin PLUGIN[:[PATH|[URI [OPTIONS]]]"
                     :short   :p
                     :doc     "Register a plugin.
@@ -418,66 +397,53 @@
                               OPTIONS supports cUrls -X and -H commands."
                     :options [:html :json :junit :message :pretty :progress :rerun
                               :summary :teamcity :testng :timeline :usage :unused]}
-
    :tags           {:example "-t, --tags TAG_EXPRESSION"
                     :short   :t
                     :doc     "Only run scenarios tagged with tags matching TAG_EXPRESSION."}
-
    :name           {:example "-n, --name REGEXP"
                     :short   :n
                     :doc     "Only run scenarios whose names match REGEXP."}
-
    :dry-run        {:example  "-d, --[no-]dry-run"
                     :short    :d
                     :no-args? true
                     :no-?     true
                     :doc      "Skip execution of glue code."}
-
    :monochrome     {:example  "-m, --[no-]monochrome"
                     :short    :m
                     :no-args? true
                     :no-?     true
                     :doc      "Don't colour terminal output."}
-
    :snippets       {:example "--snippets [underscore|camelcase]"
                     :doc     "Naming convention for generated snippets. Defaults to underscore."
                     :options [:underscore :camelcase]
                     :default :underscore}
-
    :version        {:example  "-v, --version"
                     :short    :v
                     :no-args? true
                     :doc      "Print version."}
-
    :help           {:example  "-h, --help"
                     :short    :h
                     :no-args? true
                     :doc      "You're looking at it."}
-
    :i18n           {:example "--i18n LANG"
                     :doc     "List keywords for in a particular language
                               Run with '--i18n help' to see all languages"}
-
    :wip            {:example  "-w, --wip"
                     :short    :w
                     :no-args? true
                     :doc      "Fail if there are any passing scenarios."}
-
    :order          {:example "--order"
                     :doc     "Run the scenarios in a different order.
                               The options are 'reverse' and 'random'.
                               In case of 'random' order an optional
                               seed parameter can be added 'random:<seed>'."}
-
    :count          {:example "--count"
                     :doc     "Number of scenarios to be executed.
                               If not specified all scenarios are run."}
-
    :object-factory {:example "--object-factory CLASSNAME"
                     :doc     "Uses the class specified by CLASSNAME as object factory.
                               Be aware that the class is loaded through a service loader and therefore also
                               needs to be specified in: META-INF/services/io.cucumber.core.backend.ObjectFactory"}
-
    :uuid-generator {:example "--uuid-generator CLASSNAME"
                     :doc     "Uses the class specified by CLASSNAME as UUID generator.
                               Be aware that the class is loaded through a service loader and therefore
