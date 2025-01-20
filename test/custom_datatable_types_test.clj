@@ -1,7 +1,7 @@
 (ns custom-datatable-types-test
   (:require [burpless :refer [datatable-type parameter-type run-cucumber step]]
             [clojure.test :refer [deftest is]])
-  (:import (clojure.lang Keyword)
+  (:import (clojure.lang IObj Keyword)
            (io.cucumber.datatable DataTable)
            (java.util List)))
 
@@ -109,9 +109,8 @@
                                         score-lists))))
 
    (step :Then "my state should look like this:"
-         (fn [actual-state ^String docString]
-           (let [expected-state (read-string docString)]
-             (is (= expected-state actual-state)))))
+         (fn [actual-state ^IObj expected-state]
+           (is (= expected-state actual-state))))
 
    (datatable-type {:to-type   List
                     :from-type :row

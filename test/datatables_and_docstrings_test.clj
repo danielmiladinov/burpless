@@ -1,18 +1,18 @@
 (ns datatables-and-docstrings-test
   (:require [burpless :refer [run-cucumber step]]
             [burpless.conversions :as conversions]
-            [clojure.string :as str]
             [clojure.test :refer [deftest is]])
-  (:import (io.cucumber.datatable DataTable)
+  (:import (clojure.lang IObj Keyword)
+           (io.cucumber.datatable DataTable)
            (java.lang.reflect Type)))
 
 (def datatables-and-docstrings-steps
   [(step :Given "my state starts out as an empty map"
          (constantly {}))
 
-   (step :Given "I want to collect pairs of high and low temperatures under the {word} state key"
-         (fn [state keyword-name]
-           (assoc state :target-keyword (keyword (str/replace keyword-name #":" "")))))
+   (step :Given "I want to collect pairs of high and low temperatures under the {keyword} state key"
+         (fn [state ^Keyword kw]
+           (assoc state :target-keyword kw)))
 
    (step :When "I have a table of the following high and low temperatures:"
          (fn [state ^DataTable dataTable]
@@ -28,9 +28,8 @@
            (conversions/data-table->maps dataTable)))
 
    (step :Then "my state should be equal to the following Clojure literal:"
-         (fn [actual-state ^String docString]
-           (let [expected-state (conversions/read-cucumber-string docString)]
-             (assert (= expected-state actual-state)))))])
+         (fn [actual-state ^IObj expected-state]
+           (assert (= expected-state actual-state))))])
 
 (deftest datatable-and-docstrings
   (is (zero? (run-cucumber "test-resources/features/datatables-and-docstrings.feature" datatables-and-docstrings-steps))))

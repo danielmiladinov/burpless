@@ -3,7 +3,6 @@
             [burpless.conversions :as conversions]
             [camel-snake-kebab.core :as csk]
             [clojure.data.json :as json]
-            [clojure.string :as str]
             [clojure.test :refer [deftest is]])
   (:import (clojure.lang IObj Keyword)
            (io.cucumber.datatable DataTable)
@@ -13,9 +12,9 @@
   [(step :Given "my state starts out as an empty map"
          (constantly {}))
 
-   (step :Given "I want to collect pairs of high and low temperatures under the {word} state key"
-         (fn [state keyword-name]
-           (assoc state :target-keyword (keyword (str/replace keyword-name #":" "")))))
+   (step :Given "I want to collect pairs of high and low temperatures under the {keyword} state key"
+         (fn [state ^Keyword target-keyword]
+           (assoc state :target-keyword target-keyword)))
 
    (step :When "I have a table of the following high and low temperatures:"
          (fn [state ^DataTable dataTable]

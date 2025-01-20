@@ -7,7 +7,7 @@ Feature: Defining Custom DataTable Types From DataTable Rows
       | 98 | 97 | 84 | 92 | 95 | 94 |
     When I calculate the averages of each row
     Then my state should look like this:
-    """
+    """edn
       {:score-lists [[88 78 92 67 85 93]
                      [78 58 72 87 65 83]
                      [98 97 84 92 95 94]]

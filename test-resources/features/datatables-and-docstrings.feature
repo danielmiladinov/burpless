@@ -10,7 +10,7 @@ Feature: Working With DataTables and DocStrings
       | 70 | 48 |
       | 81 | 55 |
     Then my state should be equal to the following Clojure literal:
-    """
+    """edn
     {:target-keyword :highs-and-lows
      :highs-and-lows [[81 49] [88 54] [76 56] [70 48] [81 55]]}
     """
@@ -32,7 +32,7 @@ Feature: Working With DataTables and DocStrings
       | keyword-value       | :some-keyword                                          |
       | nil-value           |                                                        |
     Then my state should be equal to the following Clojure literal:
-    """
+    """edn
       {:numeric-value       1
        :bigint-value        7823N
        :double-value        1.327
@@ -57,7 +57,7 @@ Feature: Working With DataTables and DocStrings
       | 3  | William    | David       | Miller    | green          |
       | 4  | Robert     |             | Smith     | black          |
     Then my state should be equal to the following Clojure literal:
-    """
+    """edn
       [{:id 1 :first-name "Charles" :middle-name "John"  :last-name "Taylor" :favorite-color "red"}
        {:id 2 :first-name "Brian"   :middle-name nil     :last-name "Jones"  :favorite-color "blue"}
        {:id 3 :first-name "William" :middle-name "David" :last-name "Miller" :favorite-color "green"}
