@@ -1,7 +1,6 @@
 # danielmiladinov/burpless
 
 An idiomatic Clojure wrapper around [cucumber-jvm](https://github.com/cucumber/cucumber-jvm), for writing Cucumber feature tests.
-inspired by [auxoncorp/clj-cucumber](https://github.com/auxoncorp/clj-cucumber).
 
 Library name inspired by [Roman Ostash](https://github.com/Romacoding).
 
@@ -14,7 +13,8 @@ Library name inspired by [Roman Ostash](https://github.com/Romacoding).
   - [Run the tests and copy the step definition snippets from the output](#run-the-tests-and-copy-the-step-definition-snippets-from-the-output)
   - [Copy and Paste the Step Functions](#copy-and-paste-the-step-functions)
   - [Burpless Step Functions](#burpless-step-functions)
-    - [Doc Strings and Data Tables](#doc-strings-and-data-tables)
+    - [State](#state)
+    - [Type Hints](#type-hints)
   - [Update the Step Functions to Pass the Test](#update-the-step-functions-to-pass-the-test)
 - [License](#license)
 
@@ -49,7 +49,7 @@ Feature: My first feature
       | 81 | 55 |
     When I am ready to check my state
     Then my state should be equal to the following Clojure literal:
-    """
+    """edn
     {:message "Hello, Burpless!"
      :stars 5
      :highs-and-lows [[81 49] [88 54] [76 56] [70 48] [81 55]]
@@ -96,47 +96,51 @@ Scenario: Learning to use Burpless                                              
     | 81 | 55 |
   When I am ready to check my state
   Then my state should be equal to the following Clojure literal:
+    """edn
+    {:message "Hello, Burpless!"
+     :stars 5
+     :highs-and-lows [[81 49] [88 54] [76 56] [70 48] [81 55]]
+     :ready-to-check? true}
+    """
 
 Undefined scenarios:
 file:///path/to/my-first.feature:3 # Learning to use Burpless
 
 1 Scenarios (1 undefined)
 5 Steps (4 skipped, 1 undefined)
-0m0.041s
+0m0.062s
 
 
 You can implement missing steps with the snippets below:
 
-(step :Given "I have a string value of {string} under the :message key in my state"
-      (fn i_have_a_string_value_of_under_the_message_key_in_my_state [state ^String string]
+(step :Given "I have a string value of {string} under the {keyword} key in my state"
+      (fn [state ^String string ^clojure.lang.Keyword keyword]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
-(step :Given "I have a long value of {int} under the :stars key in my state"
-      (fn i_have_a_long_value_of_under_the_stars_key_in_my_state [state ^Integer int1]
+(step :Given "I have a long value of {int} under the {keyword} key in my state"
+      (fn [state ^Integer int1 ^clojure.lang.Keyword keyword]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
 (step :Given "I have a table of the following high and low temperatures:"
-      (fn i_have_a_table_of_the_following_high_and_low_temperatures [state ^io.cucumber.datatable.DataTable dataTable]
+      (fn [state ^io.cucumber.datatable.DataTable dataTable]
         ;; Write code here that turns the phrase above into concrete actions
-        ;; Be sure to also adorn your step function with the ^:datatable metadata
-        ;; in order for the runtime to properly identify it and pass the datatable argument
         (throw (io.cucumber.java.PendingException.))))
 
 (step :When "I am ready to check my state"
-      (fn i_am_ready_to_check_my_state [state ]
+      (fn [state]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
 (step :Then "my state should be equal to the following Clojure literal:"
-      (fn my_state_should_be_equal_to_the_following_clojure_literal [state ^String docString]
+      (fn [state ^clojure.lang.IObj fromDocString]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
 
 
-FAIL in (my-first-feature) (my_first_feature_test.clj:35)
+FAIL in (my-first-feature) (my_first_feature_test.clj:9)
 expected: (zero? (run-cucumber "test/my-first.feature" steps))
   actual: (not (zero? 1))
 
@@ -153,42 +157,35 @@ Full report at:
 While these step functions in their current form definitely will not make the feature pass,
 they will at least give us a good starting-off point to build towards a possible solution.
 ```clojure
-(step :Given "I have a string value of {string} under the :message key in my state"
-      (fn i_have_a_string_value_of_under_the_message_key_in_my_state [state ^String string]
+(step :Given "I have a string value of {string} under the {keyword} key in my state"
+      (fn [state ^String string ^clojure.lang.Keyword keyword]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
-(step :Given "I have a long value of {int} under the :stars key in my state"
-      (fn i_have_a_long_value_of_under_the_stars_key_in_my_state [state ^Integer int1]
+(step :Given "I have a long value of {int} under the {keyword} key in my state"
+      (fn [state ^Integer int1 ^clojure.lang.Keyword keyword]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
 (step :Given "I have a table of the following high and low temperatures:"
-      (fn i_have_a_table_of_the_following_high_and_low_temperatures [state ^io.cucumber.datatable.DataTable dataTable]
+      (fn [state ^io.cucumber.datatable.DataTable dataTable]
         ;; Write code here that turns the phrase above into concrete actions
-        ;; Be sure to also adorn your step function with the ^:datatable metadata
-        ;; in order for the runtime to properly identify it and pass the datatable argument
         (throw (io.cucumber.java.PendingException.))))
 
 (step :When "I am ready to check my state"
-      (fn i_am_ready_to_check_my_state [state ]
+      (fn [state]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
 
 (step :Then "my state should be equal to the following Clojure literal:"
-      (fn my_state_should_be_equal_to_the_following_clojure_literal [state ^String docString]
+      (fn [state ^clojure.lang.IObj fromDocString]
         ;; Write code here that turns the phrase above into concrete actions
         (throw (io.cucumber.java.PendingException.))))
+
 ```
-Pay attention to the comments embedded in the step functions; if you are following closely, you'll see some things that
-may not immediately make sense:
-- Why does each step function have a first argument called `state`?
-- What is this `^io.cucumber.datatable.DataTable dataTable` argument all about?
-- What does this comment mean?
-```clojure
- ;; Be sure to also adorn your step function with the ^:datatable metadata
- ;; in order for the runtime to properly identify it and pass the datatable argument
-```
+If you are following closely, you'll see some things that may not immediately make sense:
+- Why does each step function take a first argument called `state`?
+- Why are there type hints on all of the other step function argumnents? Are they necessary?
 Let's try to answer these questions in the next section.
 
 ### Burpless Step Functions
@@ -199,98 +196,89 @@ your step functions will be executed.
 
 We use the burpless macro, `step`, to define our step functions. It takes three parameters:
 - A Clojure keyword representing one of the [Gherkin keywords](https://cucumber.io/docs/gherkin/reference/#keywords)
+  for steps, e.g. [Given](https://cucumber.io/docs/gherkin/reference/#given),
+  [When](https://cucumber.io/docs/gherkin/reference/#when), [Then](https://cucumber.io/docs/gherkin/reference/#then),
+  [And](https://cucumber.io/docs/gherkin/reference/#and-but), [But](https://cucumber.io/docs/gherkin/reference/#and-but)
 - A string representing either a [CucumberExpression](https://github.com/cucumber/cucumber-expressions#readme) (preferred) or
 [RegularExpression](https://en.wikipedia.org/wiki/Regular_expression) pattern to match for the step
   - (all regular expression patterns must start with `^` and end with `$` or they will be interpreted as
     cucumber expressions by the Cucumber runtime.)
 - The function to call when executing the step. Every step function will receive the current value of the state atom
 as its first argument. Any output parameters (`CucumberExpression`) or capture groups (`RegularExpression`) matched in
-the pattern are provided as additional arguments to the function.
+the pattern, zero or more, are provided as additional arguments to the function. Finally, a step may also contain a
+[Step Argument](https://cucumber.io/docs/gherkin/reference/#step-arguments). The step argument can either be a
+[Doc String](https://cucumber.io/docs/gherkin/reference/#doc-strings) or a
+[Data Table](https://cucumber.io/docs/gherkin/reference/#data-tables).
+Step arguments are great for when you need to provide more data
+than can comfortably fit into a single line of the feature file.
 
-#### Doc Strings and Data Tables
+#### State
+Each step function takes as its first argument the current value of the contents of the state atom. All the additional
+arguments, if any, come from the arguments parsed from the feature file. It is your responsibility as the step function
+author to return the new / next value of the state from each step function.
 
-Burpless' implementation of the Cucumber [`Backend`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/Backend.java) interface
-is responsible for adding [`StepDefinition`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/StepDefinition.java)s to the [`Glue`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/Glue.java) instance
-provided to it during the call to [`loadGlue()`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/Backend.java#L18),
-and they must return [`ParameterInfo`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/ParameterInfo.java) [lists](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/StepDefinition.java#L24)
-that match what the Cucumber runtime discovered while parsing the feature file(s) into Gherkin steps, or else Cucumber
-will report that step as undefined.
+You are free to write your feature tests any way you like, but a typical approach is to follow the
+[“Arrange, Act, Assert”](https://wiki.c2.com/?ArrangeActAssert) pattern.
 
-The current design of the Cucumber JVM library tries to make it very easy to identify the code that should run for a
-particular Gherkin step - assuming that your JVM language is strongly typed, and has excellent annotation support.
-Just [annotate your methods with the appropriate annotation(s)](https://cucumber.io/docs/cucumber/step-definitions/?lang=java),
-and the cucumber runtime does the rest!
+- Arrange: Some of your step functions will build up a certain value in state, or maybe perform certain external
+  initializations as side-effects.
+- Act: Using the current value of state, prepare your input data needed to pass into and / or call the system under test.
+  Typically you would observe the return value and add that to the state as well before returning.
+- Assert: Based on whatever rules in your system about the relationship between inputs into and outputs coming from the
+  system under test, make assertions about the expected output value, compared to the actual output value.
 
-Coming from Clojure, that's two strikes against us.
+#### Type Hints
+Cucumber-JVM provides snippets for you, for every step in the feature file that wasn't matched to one of your step functions.
+They are not generated by burpless but come from the underlying java code itself.
+Burpless receives the data about unmatched step, including, among other things:
+- the keyword
+- the step expression string
+- the suggested method / function name to use
+- the map of arguments that the function should accept (argument name -> argument type)
 
-Using Cucumber Expressions, it's fairly easy to extract output parameter info from the pattern itself, but that doesn't
-help us with `DataTable` or `DocString` parameters. They aren't part of the pattern, but follow in the next line(s) in
-the feature file. While there are ways to
-[reflectively get the type hints on Clojure function parameters](https://www.google.com/search?q=clojure+function+reflection+get+type+hint),
-these only seem to work for top-level functions defined with `defn`, not for the inline functions defined with `fn` and
-passed to the `step` macro. The parameter info for each `StepDefinition` has to come from somewhere, as [`parameterInfos()` method](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/cucumber-core/src/main/java/io/cucumber/core/backend/StepDefinition.java#L24)
-takes no arguments.
-
-If there were another way to make this easier to do in Clojure, I would do it. But since I haven't yet found it, or it's
-not possible, then, for step functions intended to match steps that are following by a [`DataTable`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/datatable/src/main/java/io/cucumber/datatable/DataTable.java)
-then you must tag your step function with the `^:datatable` metadata:
-```clojure
-(step :Given "I want to receive a DataTable parameter to my step function"
-      ^:datatable
-      (fn [state ^io.cucumber.datatable.DataTable dataTable]
-        ;; Do something interesting with state and dataTable, returning an updated state
-        ))
-```
-
-Similarly, for step functions intended to match steps that are followed by a [`DocString`](https://github.com/cucumber/cucumber-jvm/blob/c82382e31d7b4c8ad2292a24cfbc153625b4d343/docstring/src/main/java/io/cucumber/docstring/DocString.java),
-you must tag your step function with the `^:docstring` metadata:
-```clojure
-(step :Given "I want to receive a DocString parameter to my step function"
-      ^:docstring
-      (fn [state ^io.cucumber.docstring.DocString docString]
-        ;; Do something interesting with the state and docString, returning an updated state
-        ))
-
-```
+Burpless is responsible for taking these inputs and formatting them into a snippet you can use to quickly get started
+implementing your step functions. Since burpless receives the arguments map, we know what type they will be when
+Cucumber-JVM calls your step functions. For your convenience, the step function snippets contain
+[type hints](https://clojure.org/reference/java_interop#typehints) derived from the step argument information provided
+by Cucumber-JVM. Of course, they are optional and you a free to remove them, if you so choose. Just be aware that
+removing the type hints might negatively impact test execution performance somewhat.
 
 ### Update the Step Functions to Pass the Test
-While you might be able to come up with something slightly different, here's one possible implementation of step functions
-that makes the test pass:
+While you might be able to come up with something slightly different, here's one possible implementation
+for the step functions that makes the test pass:
 ```clojure
 (ns my-first-feature-test
-  (:require [burpless :refer [run-cucumber step]]
-            [clojure.string :as str]
-            [clojure.test :refer [deftest is]])
-  (:import (io.cucumber.datatable DataTable)
-           (io.cucumber.docstring DocString)
+  (:require [clojure.test :refer [deftest is]]
+            [burpless :refer [run-cucumber step]])
+  (:import (clojure.lang IObj Keyword)
+           (io.cucumber.datatable DataTable)
            (java.lang.reflect Type)))
 
 (def steps
-  [(step :Given "I have a string value of {string} under the :message key in my state"
-         (fn [state ^String message]
-           (assoc state :message message)))
+  [(step :Given "I have a string value of {string} under the {keyword} key in my state"
+         (fn [state ^String string ^Keyword kw]
+           (assoc state kw string)))
 
-   (step :Given "I have a long value of {long} under the {word} key in my state"
-         (fn [state ^Long stars ^String keyword-name]
-           (assoc state (keyword (str/replace keyword-name #":" "")) stars)))
+   (step :Given "I have a long value of {long} under the {keyword} key in my state"
+         (fn [state ^Long long-value ^Keyword kw]
+           (assoc state kw long-value)))
 
    (step :Given "I have a table of the following high and low temperatures:"
-         ^:datatable
-         (fn [state ^DataTable dataTable]
-           (assoc state :highs-and-lows (.asLists dataTable ^Type Long))))
+         (fn [state ^DataTable data-table]
+           (assoc state :highs-and-lows (.asLists data-table ^Type Long))))
 
    (step :When "I am ready to check my state"
          (fn [state]
            (assoc state :ready-to-check? true)))
 
    (step :Then "my state should be equal to the following Clojure literal:"
-         ^:docstring
-         (fn [actual-state ^DocString docString]
-           (let [expected-state (read-string (.getContent docString))]
-             (is (= expected-state actual-state)))))])
+         (fn [actual-state ^IObj expected-state]
+           (assert (= expected-state actual-state) (str "Expected State: " expected-state "; "
+                                                        "Actual State: " actual-state))))])
 
 (deftest my-first-feature
-  (is (= 0 (run-cucumber "test/my-first.feature" steps))))
+  (is (zero? (run-cucumber "test/my-first.feature" steps))))
+
 ```
 
 Run the tests again:
@@ -302,24 +290,30 @@ Running tests in #{"test"}
 Testing my-first-feature-test
 
 Scenario: Learning to use Burpless                                                     # test/my-first.feature:3
-  Given I have a string value of "Hello, Burpless!" under the :message key in my state # my_first_feature_test.clj:10
-  And I have a long value of 5 under the :stars key in my state                        # my_first_feature_test.clj:14
-  And I have a table of the following high and low temperatures:                       # my_first_feature_test.clj:18
+  Given I have a string value of "Hello, Burpless!" under the :message key in my state # my_first_feature_test.clj:9
+  And I have a long value of 5 under the :stars key in my state                        # my_first_feature_test.clj:13
+  And I have a table of the following high and low temperatures:                       # my_first_feature_test.clj:17
     | 81 | 49 |
     | 88 | 54 |
     | 76 | 56 |
     | 70 | 48 |
     | 81 | 55 |
-  When I am ready to check my state                                                    # my_first_feature_test.clj:23
-  Then my state should be equal to the following Clojure literal:                      # my_first_feature_test.clj:27
+  When I am ready to check my state                                                    # my_first_feature_test.clj:21
+  Then my state should be equal to the following Clojure literal:                      # my_first_feature_test.clj:25
+    """edn
+    {:message "Hello, Burpless!"
+     :stars 5
+     :highs-and-lows [[81 49] [88 54] [76 56] [70 48] [81 55]]
+     :ready-to-check? true}
+    """
 
 1 Scenarios (1 passed)
 5 Steps (5 passed)
-0m0.037s
+0m0.052s
 
 
 
-Ran 1 tests containing 2 assertions.
+Ran 1 tests containing 1 assertions.
 0 failures, 0 errors.
 ```
 
@@ -330,7 +324,7 @@ Happy Cucumbering!
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 
-    Copyright 2023 Daniel Miladinov
+    Copyright 2025 Daniel Miladinov
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
