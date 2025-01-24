@@ -4,7 +4,8 @@
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'net.clojars.danielmiladinov/burpless)
-(def version "0.1.0")
+;; Be sure to also keep the version in README up to date with this
+(def version "1.0.0-alpha1")
 #_ ; alternatively, use MAJOR.MINOR.COMMITS:
 (def version (format "1.0.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")

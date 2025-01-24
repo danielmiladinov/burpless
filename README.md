@@ -24,7 +24,7 @@ Library name inspired by [Roman Ostash](https://github.com/Romacoding).
 #### Deps:
 Add it to your `deps.edn`:
 ```clojure
-{:deps {net.clojars.danielmiladinov/burpless {:mvn/version "0.1.0"}}}
+{:deps {net.clojars.danielmiladinov/burpless {:mvn/version "1.0.0-alpha1"}}}
 ```
 #### Lein/Boot:
 Add it to your `project.clj`:
