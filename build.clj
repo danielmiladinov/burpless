@@ -5,7 +5,7 @@
 
 (def lib 'net.clojars.danielmiladinov/burpless)
 ;; Be sure to also keep the version in README up to date with this
-(def version "1.0.0-alpha1")
+(def version "1.0.0")
 #_ ; alternatively, use MAJOR.MINOR.COMMITS:
 (def version (format "1.0.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")

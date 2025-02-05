@@ -24,12 +24,12 @@ Library name inspired by [Roman Ostash](https://github.com/Romacoding).
 #### Deps:
 Add it to your `deps.edn`:
 ```clojure
-{:deps {net.clojars.danielmiladinov/burpless {:mvn/version "1.0.0-alpha1"}}}
+{:deps {net.clojars.danielmiladinov/burpless {:mvn/version "1.0.0"}}}
 ```
 #### Lein/Boot:
 Add it to your `project.clj`:
 ```clojure
-[net.clojars.danielmiladinov/burpless "0.1.0"]
+[net.clojars.danielmiladinov/burpless "1.0.0"]
 ```
 
 ### Write a Feature File
