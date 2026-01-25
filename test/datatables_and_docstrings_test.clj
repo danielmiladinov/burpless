@@ -29,7 +29,7 @@
 
    (step :Then "my state should be equal to the following Clojure literal:"
          (fn [actual-state ^IObj expected-state]
-           (assert (= expected-state actual-state))))])
+           (is (= expected-state actual-state))))])
 
 (deftest datatable-and-docstrings
   (is (zero? (run-cucumber "test-resources/features/datatables-and-docstrings.feature" datatables-and-docstrings-steps))))

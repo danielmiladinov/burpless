@@ -34,24 +34,24 @@
 
    (step :Then #"^the setup happened$"
          (fn the-setup-happened [state]
-           (assert (:setup-happened state))
+           (is (:setup-happened state))
            state))
 
    (step :Then #"^the before hook happened$"
          (fn the-before-hook-happened [state]
-           (assert (:before-hook-happened state))
+           (is (:before-hook-happened state))
            state))
 
    (step :Then #"^the thing happened$"
          (fn the-thing-happened [state]
-           (assert (:thing-happened state))
+           (is (:thing-happened state))
            state))
 
    (step :Then #"^the (\w+) step counter is (\d+)$"
          (fn the-step-counter-is [state kind val]
            (case kind
-             "before" (assert (= val (:before-step-count state)))
-             "after" (assert (= val (:after-step-count state))))
+             "before" (is (= val (:before-step-count state)))
+             "after" (is (= val (:after-step-count state))))
            state))])
 
 (deftest simple-feature

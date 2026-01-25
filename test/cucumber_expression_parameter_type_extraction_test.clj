@@ -9,7 +9,7 @@
 
    (step :Then "its int value should be {int}"
          (fn [{:keys [parameter-value] :as state} ^Integer expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a float value of {float}"
@@ -18,7 +18,7 @@
 
    (step :Then "its float value should be {float}"
          (fn [{:keys [parameter-value] :as state} ^Float expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a word value of {word}"
@@ -27,7 +27,7 @@
 
    (step :Then "its word value should be {word}"
          (fn [{:keys [parameter-value] :as state} ^String expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a string value of {string}"
@@ -36,7 +36,7 @@
 
    (step :Then "its string value should be {string}"
          (fn [{:keys [parameter-value] :as state} ^String expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have an anonymous value of {}"
@@ -45,7 +45,7 @@
 
    (step :Then "its anonymous value should be {}"
          (fn [{:keys [parameter-value] :as state} ^String expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a bigdecimal value of {bigdecimal}"
@@ -54,7 +54,7 @@
 
    (step :Then "its bigdecimal value should be {bigdecimal}"
          (fn [{:keys [parameter-value] :as state} ^BigDecimal expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a double value of {double}"
@@ -63,7 +63,7 @@
 
    (step :Then "its double value should be {double}"
          (fn [{:keys [parameter-value] :as state} ^Double expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a biginteger value of {biginteger}"
@@ -72,7 +72,7 @@
 
    (step :Then "its biginteger value should be {biginteger}"
          (fn [{:keys [parameter-value] :as state} ^BigInteger expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a byte value of {byte}"
@@ -81,7 +81,7 @@
 
    (step :Then "its byte value should be {byte}"
          (fn [{:keys [parameter-value] :as state} ^Byte expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a short value of {short}"
@@ -90,7 +90,7 @@
 
    (step :Then "its short value should be {short}"
          (fn [{:keys [parameter-value] :as state} ^Short expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :When "I have a long value of {long}"
@@ -99,13 +99,13 @@
 
    (step :Then "its long value should be {long}"
          (fn [{:keys [parameter-value] :as state} ^Long expected]
-           (assert (= expected parameter-value))
+           (is (= expected parameter-value))
            state))
 
    (step :And "its type should be {}"
          (fn [{:keys [parameter-value] :as state} ^String type-name]
-           (assert (= (Class/forName type-name)
-                      (type parameter-value)))
+           (is (= (Class/forName type-name)
+                  (type parameter-value)))
            state))])
 
 (deftest using-cucumber-expressions

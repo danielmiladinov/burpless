@@ -170,7 +170,7 @@
                                                                {:type :hook :phase :after :tag "not @First"}
                                                                {:type :hook :phase :after :tag "@First or @Third"}
                                                                {:type :hook :phase :after}]}}]
-             (assert (= expected-state actual-state)))))])
+             (is (= expected-state actual-state)))))])
 
 (deftest tag-expressions-in-hooks-test
   (is (zero? (run-cucumber "test-resources/features/tag-expressions-in-hooks.feature" tag-expressions-in-hooks-glues))))

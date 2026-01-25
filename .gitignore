@@ -15,6 +15,7 @@
 .portal/vs-code.edn
 .project
 .rebel_readline_history
+.run/
 .settings
 .socket-repl-port
 .sw*

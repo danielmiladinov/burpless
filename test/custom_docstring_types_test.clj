@@ -50,7 +50,7 @@
 
    (step :Then "my state's {keyword} equality value should be {boolean}"
          (fn [state ^Keyword kw ^Boolean equal?]
-           (assert equal? (kw state))
+           (is equal? (kw state))
            state))
 
    (docstring-type {:content-type "json"

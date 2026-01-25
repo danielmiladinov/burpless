@@ -1,6 +1,7 @@
 (ns burpless.runtime
   (:require [clojure.edn :as edn]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure.test :as test])
   (:import (clojure.lang Atom IObj Keyword Symbol)
            (io.cucumber.core.backend Backend DataTableTypeDefinition DocStringTypeDefinition Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
            (io.cucumber.core.gherkin DataTableArgument DocStringArgument Feature Pickle)
@@ -17,9 +18,15 @@
            (java.text MessageFormat)
            (java.util List Locale Map)))
 
+(def ^:dynamic *report-all-step-failures?*
+  "When true, reports all `clojure.test/is` assertion failures in a step.
+   When false (default), reports only the first failure.
+   Users can override this with: (binding [burpless.runtime/*report-all-step-failures* true] ...)"
+  false)
+
 (defn- access-private-field
   "Given an object instance and a symbol referring to one of its non-public fields,
-  return that field's value."
+   return that field's value."
   [^Object instance ^Symbol field-name]
   (-> (doto ^Field (->> (-> instance .getClass .getDeclaredFields)
                         (filter #(-> % .getName (.equals (name field-name))))
@@ -29,7 +36,7 @@
 
 (defn- invoke-private-method
   "Given an object instance (or a Class) and a symbol referring to one of its non-public methods,
-  invoke that method with any provided args."
+   invoke that method with any provided args."
   [^Object instance-or-class ^Symbol method-name & args]
   (let [^Class clazz (if (class? instance-or-class) instance-or-class (class instance-or-class))
         method-args  (to-array args)]
@@ -53,19 +60,19 @@
 
 (defmulti ^:private to-parameter-infos
           "There's more than one way to produce a list of ParameterInfo objects from a StepExpression,
-          and we decide which method to use by dispatching on the type of the incoming StepExpression.
+           and we decide which method to use by dispatching on the type of the incoming StepExpression.
 
-          For CucumberExpressions, the work is much simpler as we can determine the parameter info directly from
-          the parameter types embedded in the expression string. See cucumber-expression-parameter-types below for
-          more detail.
+           For CucumberExpressions, the work is much simpler as we can determine the parameter info directly from
+           the parameter types embedded in the expression string. See cucumber-expression-parameter-types below for
+           more detail.
 
-          For RegularExpressions, we chose to dig into Cucumber-JVM's non-public APIs to leverage its capabilities
-          for extracting parameter types from regular expression capture groups.
-          Although ParameterTypeRegistry itself is a public API of the Cucumber Expressions library, and we could have
-          theoretically just instantiated a registry instance of our own, we wonder whether the instance held by
-          a RegularExpression instance might have been further augmented with additional parameter types
-          after initialization via calls to its defineParameterType method.
-          See also: https://github.com/cucumber/cucumber-expressions/blob/main/java/src/main/java/io/cucumber/cucumberexpressions/ParameterTypeRegistry.java"
+           For RegularExpressions, we chose to dig into Cucumber-JVM's non-public APIs to leverage its capabilities
+           for extracting parameter types from regular expression capture groups.
+           Although ParameterTypeRegistry itself is a public API of the Cucumber Expressions library, and we could have
+           theoretically just instantiated a registry instance of our own, we wonder whether the instance held by
+           a RegularExpression instance might have been further augmented with additional parameter types
+           after initialization via calls to its defineParameterType method.
+           See also: https://github.com/cucumber/cucumber-expressions/blob/main/java/src/main/java/io/cucumber/cucumberexpressions/ParameterTypeRegistry.java"
           (comp type :expression))
 
 ;; Given a CucumberExpression, get at its source property, which is the actual string which we expect to contain zero
@@ -150,6 +157,53 @@
              first
              :argument)))
 
+(defn- format-single-problem
+  "Given an ordinality that can be nil, and a single test problem, return a string describing the difference
+   between expected and actual values, depending on its :type. "
+  ([problem] (format-single-problem nil problem))
+  ([ordinality {:keys [type expected actual message]}]
+    (let [prefix (when ordinality "  ")]
+      (str prefix
+           (when ordinality (str "Problem " (inc ordinality) ": "))
+           message
+           "\n"
+          (condp = type
+            :fail (str prefix prefix
+                       "expected: " (pr-str expected) "\n"
+                       prefix prefix
+                       "  actual: " (pr-str actual))
+            :error (if (instance? Throwable actual)
+                     (str prefix prefix "Exception in assertion: " (.getMessage ^Throwable actual) "\n"
+                          prefix prefix "  expected: " (pr-str expected))
+                     (str prefix prefix "Error in assertion: " (pr-str actual))))))))
+
+(defn- format-step-problems
+  "Format captured test failures and errors for display in AssertionError messages."
+  [problems]
+  (if (= 1 (count problems))
+    (format-single-problem (first problems))
+    (str "Multiple Assertion Problems in step:\n"
+         (str/join "\n" (map-indexed format-single-problem problems)))))
+
+(defn- execute-step-with-test-interception
+  "Given a state atom, a step function, and args, execute the step function by applying the state atom followed by
+  the args. Intercept `clojure.test` assertion failures and errors, converting them to AssertionErrors, throwing them
+  so that Cucumber-JVM can catch them and register the test failure.
+  The number of failures reported can be controlled by the *report-all-step-failures* dynamic variable."
+  [state-atom step-fn args]
+  (let [captured-problems (atom [])
+        capturable?       (comp #{:fail :error} :type)]
+    (binding [test/report (fn [test-problem]
+                            (when (capturable? test-problem)
+                              (swap! captured-problems conj test-problem)))]
+      (let [result (apply swap! state-atom step-fn args)]
+        (when (seq @captured-problems)
+          (let [problems-to-report (cond-> @captured-problems
+                                           (not *report-all-step-failures?*)
+                                           (subvec 0 1))]
+            (throw (AssertionError. (format-step-problems problems-to-report)))))
+        result))))
+
 (defn- to-step-definition
   "Given a ParameterTypeRegistry, an ExpressionFactory, a sequence of pickle steps,
   a sequence of DocStringTypeDefinitions, a map describing the step definition to be built, and a state atom,
@@ -193,7 +247,7 @@
                                       (invoke-private-method docstring-type 'transform content)
                                       content)))]
                (aset args last-idx (-> ^DocString last-arg .getContent transform))))
-           (apply swap! state-atom function args)))
+           (execute-step-with-test-interception state-atom function args)))
        (^List parameterInfos [_]
          all-parameter-infos)
        (^String getPattern [_]

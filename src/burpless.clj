@@ -122,6 +122,6 @@
    (run-cucumber x y {:plugin "pretty"}))
   ([feature-path glues args]
    (let [state-atom (atom nil)
-         runtime    (create-cucumber-runtime (assoc args :feature-path feature-path) glues state-atom)]
+         runtime (create-cucumber-runtime (assoc args :feature-path feature-path) glues state-atom)]
      (.run runtime)
      (.exitStatus runtime))))

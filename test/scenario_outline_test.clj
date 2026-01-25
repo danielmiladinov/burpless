@@ -20,7 +20,7 @@
 
    (step :Then "I should be told {string}"
          (fn [{:keys [actual-answer] :as state} ^String expected-answer]
-           (assert (= expected-answer actual-answer))
+           (is (= expected-answer actual-answer))
            state))])
 
 (deftest scenario-outline

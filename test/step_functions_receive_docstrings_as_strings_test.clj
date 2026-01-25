@@ -16,9 +16,10 @@
            (assoc state :expected-doc-string-value-type (Class/forName expected-doc-string-value-type))))
 
    (step :Then "the actual extracted doc-string value should match the expected doc-string value"
-         (fn [{:keys [expected-doc-string-value actual-doc-string-value]}]
-           (assert (= expected-doc-string-value actual-doc-string-value)
-                   (str expected-doc-string-value " != " actual-doc-string-value))))])
+         (fn [{:keys [expected-doc-string-value actual-doc-string-value] :as state}]
+           (is (= expected-doc-string-value actual-doc-string-value)
+               (str expected-doc-string-value " != " actual-doc-string-value))
+           state))])
 
 (deftest step-functions-receive-docstrings-as-strings
   (is (zero? (run-cucumber "test-resources/features/docstrings-as-strings.feature"

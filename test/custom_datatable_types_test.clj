@@ -20,13 +20,13 @@
 
    (step :Then "the {keyword} square should be empty"
          (fn [{:keys [board] :as state} ^Keyword board-cell]
-           (assert (= nil (board-cell board)))
+           (is (= nil (board-cell board)))
            state))
 
    (step :Then "the {keyword} square should be {keyword}"
          (fn the_square_should_be [{:keys [board] :as state} ^Keyword board-cell ^Keyword expected-player]
            (let [actual-player (board-cell board)]
-             (assert (= expected-player actual-player)))
+             (is (= expected-player actual-player)))
            state))
 
    (datatable-type {:to-type   TicTacToeBoard
@@ -48,7 +48,7 @@
 
    (step :Then "I find {int} book(s)"
          (fn [state ^Integer num-books]
-           (assert (= num-books (count (:matching-books state))))))
+           (is (= num-books (count (:matching-books state))))))
 
    (step :Given "I have the following books in the store"
          ^{:datatable [Book]}
@@ -80,12 +80,12 @@
 
    (step :Then "{color} is one of my favorite colors"
          (fn [{:keys [favorite-colors] :as state} ^Color candidate]
-           (assert (some? (some #{candidate} favorite-colors)))
+           (is (some? (some #{candidate} favorite-colors)))
            state))
 
    (step :Then "{color} is not one of my favorite colors"
          (fn [{:keys [favorite-colors] :as state} ^Color candidate]
-           (assert (nil? (some #{candidate} favorite-colors)))
+           (is (nil? (some #{candidate} favorite-colors)))
            state))
 
    (datatable-type {:to-type   Color
