@@ -18,7 +18,6 @@
       :line      ~line
       :file      ~*file*}))
 
-
 (defmacro hook
   "Create a hook map. Takes a keyword representing which phase of the test lifecycle to run in,
   and the function to run.

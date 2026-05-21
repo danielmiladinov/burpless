@@ -4,11 +4,11 @@
             [clojure.test :as test])
   (:import (clojure.lang Atom IObj Keyword Symbol)
            (io.cucumber.core.backend Backend DataTableTypeDefinition DocStringTypeDefinition Glue HookDefinition ParameterInfo ParameterTypeDefinition Snippet StaticHookDefinition StepDefinition TestCaseState TypeResolver)
-           (io.cucumber.core.gherkin DataTableArgument DocStringArgument Feature Pickle)
+           (io.cucumber.core.gherkin DataTableArgument DocStringArgument Feature Pickle Step)
            (io.cucumber.core.gherkin.messages GherkinMessagesFeatureParser)
            (io.cucumber.core.options CommandlineOptionsParser CucumberProperties CucumberPropertiesParser)
            (io.cucumber.core.runtime BackendSupplier FeatureSupplier)
-           (io.cucumber.cucumberexpressions CucumberExpression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
+           (io.cucumber.cucumberexpressions CucumberExpression Expression ExpressionFactory GroupBuilder ParameterType ParameterTypeRegistry RegularExpression Transformer)
            (io.cucumber.datatable DataTable DataTableType TableCellTransformer TableEntryTransformer TableRowTransformer TableTransformer)
            (io.cucumber.docstring DocString DocStringType DocStringType$Transformer)
            (java.io File)
@@ -16,7 +16,8 @@
            (java.net URI)
            (java.nio.file Files OpenOption Path)
            (java.text MessageFormat)
-           (java.util List Locale Map)))
+           (java.util List Locale Map)
+           (java.util.function Supplier)))
 
 (def ^:dynamic *report-all-step-failures?*
   "When true, reports all `clojure.test/is` assertion failures in a step.
@@ -27,29 +28,23 @@
 (defn- access-private-field
   "Given an object instance and a symbol referring to one of its non-public fields,
    return that field's value."
-  [^Object instance ^Symbol field-name]
-  (-> (doto ^Field (->> (-> instance .getClass .getDeclaredFields)
-                        (filter #(-> % .getName (.equals (name field-name))))
-                        first)
-        (.setAccessible true))
-      (.get instance)))
+  [^Object instance ^Symbol field-name-sym]
+  (let [f (-> instance .getClass (.getDeclaredField (name field-name-sym)))]
+    (.setAccessible f true)
+    (.get f instance)))
 
 (defn- invoke-private-method
   "Given an object instance (or a Class) and a symbol referring to one of its non-public methods,
    invoke that method with any provided args."
-  [^Object instance-or-class ^Symbol method-name & args]
-  (let [^Class clazz (if (class? instance-or-class) instance-or-class (class instance-or-class))
-        method-args  (to-array args)]
-    (-> (doto ^Method (->> (.getDeclaredMethods clazz)
-                           (filter #(-> % .getName (.equals (name method-name))))
-                           first)
-          (.setAccessible true))
-        (.invoke instance-or-class method-args))))
+  [^Object instance-or-class ^Symbol method-name-sym & args]
+  (let [^Class clazz (cond-> instance-or-class (not (class? instance-or-class)) class)
+        ^Method m    (-> clazz (.getDeclaredMethod (name method-name-sym) (into-array Class (map type args))))]
+    (.setAccessible m true)
+    (.invoke m instance-or-class (to-array args))))
 
 (defn- to-parameter-info
   "Return a ParameterInfo for a given Type, or java.lang.Object, if none was given."
   (^ParameterInfo [] (to-parameter-info Object))
-
   (^ParameterInfo [^Type type]
    (reify ParameterInfo
      (^Type getType [_] type)
@@ -85,7 +80,7 @@
   [{:keys [^CucumberExpression expression
            ^ParameterTypeRegistry registry]}]
   (let [parameter-types (->> (invoke-private-method registry 'getParameterTypes)
-                             (reduce (fn [m p]
+                             (reduce (fn [m ^ParameterType p]
                                        (assoc m (format "{%s}" (.getName p))
                                                 (.getType p)))
                                      {}))]
@@ -102,7 +97,9 @@
     (mapv (fn [^GroupBuilder capture-group]
             (let [source         (invoke-private-method capture-group 'getSource)
                   parameter-type (invoke-private-method registry 'lookupByRegexp source (.getRegexp expression) "")
-                  inner-type     (or (some-> parameter-type (.getType)) String)]
+                  inner-type     (if (instance? ParameterType parameter-type)
+                                   (.getType ^ParameterType parameter-type)
+                                   String)]
               (to-parameter-info inner-type)))
           capture-groups)))
 
@@ -153,7 +150,7 @@
   (let [types (into-array Type (map ParameterInfo/.getType step-parameter-infos))]
     (some->> pickle-steps
              not-empty
-             (filter (comp some? (fn [text] (.match expression text types)) :text))
+             (filter (comp some? (fn [text] (.match ^Expression expression text types)) :text))
              first
              :argument)))
 
@@ -309,7 +306,7 @@
   "Return a representation of a given argument type.
   DataTables, IObjs, and Keywords get special treatment, in that we return the full name.
   For all other types, return the simple name."
-  (^String [arg-type]
+  (^String [^Class arg-type]
    (if (instance? Class arg-type)
      (if (#{DataTable IObj Keyword} arg-type)
        (.getName arg-type)
@@ -379,7 +376,7 @@
    (let [pickle-steps       (->> feature
                                  .getPickles
                                  (mapcat Pickle/.getSteps)
-                                 (mapv (fn [step]
+                                 (mapv (fn [^Step step]
                                          {:keyword  (.getKeyword step)
                                           :type     (.getType step)
                                           :text     (.getText step)
@@ -621,7 +618,7 @@
               feature-uri    (URI. (str/join File/separator ["file:" File/separator (System/getProperty "user.dir") feature-path]))
               feature-stream (Files/newInputStream (Path/of feature-uri) (make-array OpenOption 0))
               feature        (-> (GherkinMessagesFeatureParser.)
-                                 (.parse feature-uri feature-stream random-uuid)
+                                 (.parse feature-uri feature-stream ^Supplier random-uuid)
                                  .get)
               backend        (create-clojure-cucumber-backend feature glues state-atom)
               runtime        (-> (io.cucumber.core.runtime.Runtime/builder) ;; disambiguated from java.lang.Runtime
