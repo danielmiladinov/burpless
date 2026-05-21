@@ -159,14 +159,14 @@
 
 (defn- format-single-problem
   "Given an ordinality that can be nil, and a single test problem, return a string describing the difference
-   between expected and actual values, depending on its :type. "
+   between expected and actual values, depending on its :type."
   ([problem] (format-single-problem nil problem))
   ([ordinality {:keys [type expected actual message]}]
-    (let [prefix (when ordinality "  ")]
-      (str prefix
-           (when ordinality (str "Problem " (inc ordinality) ": "))
-           message
-           "\n"
+   (let [prefix (when ordinality "  ")]
+     (str prefix
+          (when ordinality (str "Problem " (inc ordinality) ": "))
+          message
+          "\n"
           (condp = type
             :fail (str prefix prefix
                        "expected: " (pr-str expected) "\n"
@@ -185,18 +185,39 @@
     (str "Multiple Assertion Problems in step:\n"
          (str/join "\n" (map-indexed format-single-problem problems)))))
 
+(defn- execute-with-around-hooks
+  "Given an initial state, around-step hooks, and inner-run-step (fn [state] -> new-state),
+   composes the hooks. Each hook receives [current-state run-step] where run-step is
+   (fn [state] -> new-state). First-defined hook is outermost. Returns final state."
+  [initial-state around-step-hooks inner-run-step]
+  (let [execute-chain (reduce
+                        (fn [next-fn hook]
+                          (fn [state]
+                            (let [run-step (fn [s] (next-fn s))]
+                              ((:function hook) state run-step))))
+                        inner-run-step
+                        (reverse around-step-hooks))]
+    (execute-chain initial-state)))
+
 (defn- execute-step-with-test-interception
-  "Given a state atom, a step function, and args, execute the step function by applying the state atom followed by
-  the args. Intercept `clojure.test` assertion failures and errors, converting them to AssertionErrors, throwing them
-  so that Cucumber-JVM can catch them and register the test failure.
-  The number of failures reported can be controlled by the *report-all-step-failures* dynamic variable."
-  [state-atom step-fn args]
+  "Given a state atom, a sequence of around-step-hooks, a step function, and args (from Cucumber),
+   executes by passing current state + args to step-fn (or via around hooks). Intercepts
+   clojure.test assertions. State atom is updated with the update state value returned from the step."
+  [state-atom around-step-hooks step-fn args]
   (let [captured-problems (atom [])
-        capturable?       (comp #{:fail :error} :type)]
+        capturable?       (comp #{:fail :error} :type)
+        inner-run-step    (fn [state]
+                            (apply step-fn state args))
+        outer-run-step    (if (seq around-step-hooks)
+                            (fn [state]
+                              (execute-with-around-hooks state around-step-hooks inner-run-step))
+                            inner-run-step)]
     (binding [test/report (fn [test-problem]
                             (when (capturable? test-problem)
                               (swap! captured-problems conj test-problem)))]
-      (let [result (apply swap! state-atom step-fn args)]
+      (let [current-state @state-atom
+            result        (outer-run-step current-state)]
+        (reset! state-atom result)
         (when (seq @captured-problems)
           (let [problems-to-report (cond-> @captured-problems
                                            (not *report-all-step-failures?*)
@@ -206,12 +227,14 @@
 
 (defn- to-step-definition
   "Given a ParameterTypeRegistry, an ExpressionFactory, a sequence of pickle steps,
-  a sequence of DocStringTypeDefinitions, a map describing the step definition to be built, and a state atom,
-  return a StepDefinition implementation, which after execution its effects should be observable in the state atom."
+   a sequence of DocStringTypeDefinitions, a sequence of “around step” hooks, a map describing the step definition
+   to be built, and a state atom, return a StepDefinition implementation.
+   The effects of step execution should be observable in the contents of the state atom afterward."
   (^StepDefinition [^ParameterTypeRegistry registry
                     ^ExpressionFactory expression-factory
                     pickle-steps
                     docstring-typedefs
+                    around-step-hooks
                     {:keys [pattern function file line]}
                     ^Atom state-atom]
    (let [pattern-str          (str pattern)
@@ -247,7 +270,7 @@
                                       (invoke-private-method docstring-type 'transform content)
                                       content)))]
                (aset args last-idx (-> ^DocString last-arg .getContent transform))))
-           (execute-step-with-test-interception state-atom function args)))
+           (execute-step-with-test-interception state-atom around-step-hooks function args)))
        (^List parameterInfos [_]
          all-parameter-infos)
        (^String getPattern [_]
@@ -392,18 +415,21 @@
                                true true true))
          (doseq [parameter-type (map to-parameter-type parameter-types)]
            (register-custom-parameter-type glue registry parameter-type))
-         (doseq [{:keys [phase] :as hook} hooks
-                 :let [hook-def (to-hook-definition hook state-atom)]]
-           (case phase
-             :before-all (.addBeforeAllHook glue hook-def)
-             :after-all (.addAfterAllHook glue hook-def)
-             :before (.addBeforeHook glue hook-def)
-             :after (.addAfterHook glue hook-def)
-             :before-step (.addBeforeStepHook glue hook-def)
-             :after-step (.addAfterStepHook glue hook-def)))
-         (let [typedefs (reset! docstring-typedefs (invoke-private-method glue 'getDocStringTypeDefinitions))]
+         ;; Cucumber doesn't support “around step” hooks, so we have to support them ourselves,
+         ;; within our own step definition implementation
+         (let [{cucumber-supported-hooks false around-step-hooks true} (group-by (comp (partial = :around-step) :phase) hooks)
+               typedefs (reset! docstring-typedefs (invoke-private-method glue 'getDocStringTypeDefinitions))]
+           (doseq [{:keys [phase] :as hook} cucumber-supported-hooks
+                   :let [hook-def (to-hook-definition hook state-atom)]]
+             (case phase
+               :before-all (.addBeforeAllHook glue hook-def)
+               :after-all (.addAfterAllHook glue hook-def)
+               :before (.addBeforeHook glue hook-def)
+               :after (.addAfterHook glue hook-def)
+               :before-step (.addBeforeStepHook glue hook-def)
+               :after-step (.addAfterStepHook glue hook-def)))
            (doseq [step-fn step-fns]
-             (.addStepDefinition glue (to-step-definition registry factory pickle-steps typedefs step-fn state-atom)))))
+             (.addStepDefinition glue (to-step-definition registry factory pickle-steps typedefs around-step-hooks step-fn state-atom)))))
        (^void buildWorld [_])
        (^void disposeWorld [_])
        (^Snippet getSnippet [_]
