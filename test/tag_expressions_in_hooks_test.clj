@@ -1,6 +1,6 @@
 (ns tag-expressions-in-hooks-test
   (:require [burpless :refer [hook run-cucumber step]]
-            [camel-snake-kebab.core :as csk]
+            [camel-snake-kebab-java.core :as csk]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]))
 

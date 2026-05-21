@@ -1,7 +1,7 @@
 (ns custom-docstring-types-test
   (:require [burpless :refer [docstring-type parameter-type run-cucumber step]]
             [burpless.conversions :as conversions]
-            [camel-snake-kebab.core :as csk]
+            [camel-snake-kebab-java.core :as csk]
             [clojure.data.json :as json]
             [clojure.test :refer [deftest is]])
   (:import (clojure.lang IObj Keyword)
