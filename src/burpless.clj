@@ -23,12 +23,26 @@
   "Create a hook map. Takes a keyword representing which phase of the test lifecycle to run in,
   and the function to run.
   Supported phases:
-  - :before-all - “before all features”
-  - :after-all - “after all features”
-  - :before - “before each feature”
-  - :after - “after each feature”
-  - :before-step - “before each step”
-  - :after-step - “after each step”"
+  - :before-all  - before all features
+  - :after-all   - after all features
+  - :before      - before each feature
+  - :after       - after each feature
+  - :before-step - before each step
+  - :after-step  - after each step
+  - :around-step - around each step (wraps individual step execution)
+
+  Note: Around-step hooks receive the current state and a run-step fn as args.
+  Call (run-step state) to execute the wrapped step (and any inner around hooks);
+  it returns the updated state. Your hook must return the final state.
+  Multiple around hooks compose; first-defined hook is the outermost.
+
+  Example:
+  (hook :around-step
+        (fn [state run-step]
+          (println “Before step”)
+          (let [new-state (run-step state)]
+            (println “After step”)
+            new-state)))"
   [phase hook-fn]
   (let [line (:line (meta &form))]
     `{:glue-type :hook

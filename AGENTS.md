@@ -1,15 +1,17 @@
 # AGENTS.md
 
-This file contains instructions for agentic coding assistants working on the burpless project. Burpless is a Clojure wrapper around Cucumber-JVM for writing BDD feature tests.
+This file contains instructions for agentic coding assistants working on the burpless project.
+Burpless is a Clojure wrapper around Cucumber-JVM for writing BDD feature tests.
 
 ## Project Overview
 
-Burpless provides an idiomatic Clojure interface for Cucumber-JVM, enabling developers to write BDD tests using Gherkin feature files. The library supports:
+Burpless provides an idiomatic Clojure interface for Cucumber-JVM, enabling developers to write BDD tests using Gherkin feature files.
+The library supports:
 
 - Step definitions with state management
 - DataTables and DocStrings
 - Custom parameter types
-- Hooks (before/after scenarios, steps)
+- Hooks (before/after scenarios, steps; around steps)
 - Generative testing capabilities
 
 ## Build Commands
@@ -207,8 +209,3 @@ The project uses clj-kondo for linting. Ensure code passes linting before commit
 - Prefer honest assessment of difficulties over optimistic but inadequate implementations
 - Do not push forward with solutions that don't fully address the stated requirements
 - When technical challenges are identified, discuss them openly rather than attempting incomplete workarounds
-
-## External Rules
-
-No Cursor rules (.cursor/rules/ or .cursorrules) or Copilot rules (.github/copilot-instructions.md) were found in this repository.</content>
-<parameter name="filePath">/Users/danielm/PersonalProjects/burpless/AGENTS.md
